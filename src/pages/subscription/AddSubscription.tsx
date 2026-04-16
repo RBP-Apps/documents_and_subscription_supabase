@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { X, Save, Loader } from 'lucide-react';
-import { submitToGoogleSheets } from '../../utils/googleSheetsService';
+import supabase from '../../utils/supabase';
 
 interface AddSubscriptionProps {
   isOpen: boolean;
@@ -86,97 +86,77 @@ const AddSubscription: React.FC<AddSubscriptionProps> = ({ isOpen, onClose, onSu
     const toastId = toast.loading(
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <span className="font-bold">Submitting to Google Sheets...</span>
+          <span className="font-bold">Submitting to Supabase...</span>
         </div>
         <div className="text-xs opacity-90">
-          Sheet: Subscription<br />
+          Database: Subscription<br />
           Serial Number: Generating...
         </div>
       </div>
     );
 
     try {
-      const timestamp = getCurrentTimestamp();
-      const sn = ""; // Let backend generate SN
+      // Clean up price (remove currency symbols if any)
+      const numericPrice = parseFloat(formData.price.replace(/[^0-9.]/g, '')) || 0;
 
-      // Prepare data for Google Sheets as an ARRAY in the correct order
-      const rowData = [
-        timestamp,                 // A: Timestamp
-        sn,                        // B: SN No (Backend will generate this)
-        formData.companyName,      // C: Company Name
-        formData.subscriberName,   // D: Subscriber Name
-        formData.subscriptionName, // E: Subscription Name
-        formData.price,            // F: Price
-        formData.frequency,        // G: Frequency (Column 7)
-        formData.purpose           // H: Purpose
-      ];
-
-      console.log('Submitting to Google Sheets:', {
-        sheetName: 'Subscription',
-        rowData: rowData
+      console.log('Submitting to Supabase:', {
+        table: 'create_subscription',
+        data: formData
       });
 
-      // Submit to Google Sheets ONLY - NO localStorage
-      const result = await submitToGoogleSheets({
-        action: "insert",
-        sheetName: "Subscription",
-        data: rowData // Array, not object
-      });
+      const { data: insertedData, error } = await supabase
+        .from("create_subscription")
+        .insert([{
+          company_name: formData.companyName,
+          subscriber_name: formData.subscriberName,
+          subscription_name: formData.subscriptionName,
+          price: numericPrice,
+          frequency: formData.frequency,
+          purpose: formData.purpose
+        }])
+        .select("id, serial_no")
+        .single();
 
-      console.log('Google Sheets response:', result);
+      if (error) throw error;
 
-      if (result.success) {
-        // CHECK FOR BACKEND VERSION
-        if (!result._version) {
-          toast.error(
-            <div>
-              <b>DEPLOYMENT UPDATE REQUIRED</b>
-              <br />
-              Refused to save proper Serial No because Google Apps Script is outdated.
-              <br />
-              Please go to Apps Script {">"} Deploy {">"} New Version.
-            </div>,
-            { duration: 6000 }
-          );
-        }
-
-        const generatedSN = result.serialNo;
-
-        if (generatedSN) {
-          toast.success(`Subscription added successfully! Serial No: ${generatedSN}`, { id: toastId });
-        } else {
-          if (!result._version) {
-            toast("Saved locally (Script Outdated)", { icon: '⚠️', id: toastId });
-          } else {
-            toast.success('Subscription saved! Refreshing...', { id: toastId });
-          }
-        }
-
-        // Reset form
-        setFormData({
-          companyName: '',
-          subscriberName: '',
-          subscriptionName: '',
-          price: '',
-          frequency: '',
-          purpose: ''
-        });
-
-        // Call onSuccess callback to refresh data
-        if (onSuccess) {
-          onSuccess();
-        }
-
-        // Close modal after a short delay
-        setTimeout(() => {
-          onClose();
-        }, 1000);
-
-      } else {
-        throw new Error(result.error || 'Failed to save to Google Sheets');
+      let generatedSN = "Pending";
+      if (insertedData && insertedData.id) {
+         generatedSN = `SN-${insertedData.id}`;
+         
+         const { error: updateError } = await supabase
+           .from("create_subscription")
+           .update({ serial_no: generatedSN })
+           .eq("id", insertedData.id);
+           
+         if (updateError) {
+           console.warn("Could not set up generated SN", updateError);
+         }
       }
+
+      toast.success(`Subscription added successfully! Serial No: ${generatedSN}`, { id: toastId });
+
+      // Reset form
+      setFormData({
+        companyName: '',
+        subscriberName: '',
+        subscriptionName: '',
+        price: '',
+        frequency: '',
+        purpose: ''
+      });
+
+      // Call onSuccess callback to refresh data
+      if (onSuccess) {
+        onSuccess();
+      }
+
+      // Close modal after a short delay
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+
     } catch (error) {
-      console.error('Error submitting to Google Sheets:', error);
+      console.error('Error submitting to Supabase:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to add subscription', { id: toastId });
     } finally {
       setSubmitting(false);
@@ -342,7 +322,7 @@ const AddSubscription: React.FC<AddSubscriptionProps> = ({ isOpen, onClose, onSu
             {submitting ? (
               <>
                 <Loader className="h-5 w-5 animate-spin" />
-                Saving to Google Sheets...
+                Saving to Supabase...
               </>
             ) : (
               <>

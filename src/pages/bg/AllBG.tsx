@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Building, FileText } from 'lucide-react';
 import useDataStore from '../../store/dataStore';
 import useHeaderStore from '../../store/headerStore';
-import { fetchBGsFromGoogleSheets } from '../../utils/googleSheetsService';
+import supabase from '../../utils/supabase';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
 import AddBG from './AddBG';
@@ -31,11 +31,35 @@ const AllBG = () => {
     const loadBGs = async () => {
         try {
             setIsLoading(true);
-            const fetchedBGs = await fetchBGsFromGoogleSheets();
-            setBgs(fetchedBGs);
+            const { data, error } = await supabase
+                .from('BG')
+                .select('*')
+                .order('id', { ascending: false });
+
+            if (error) {
+                throw error;
+            }
+
+            const formattedBGs = (data || []).map((item) => ({
+                id: item.id.toString(),
+                Timestamp: item.timestamp || item.created_at || new Date().toISOString(),
+                sn: item.serial_no || '',
+                bgName: item.bg_name || '',
+                bgNo: item.bg_no || '',
+                bankName: item.bank_name || '',
+                amount: item.amount?.toString() || '',
+                startDate: item.bg_start_date || '',
+                endDate: item.expiry_date || '',
+                extendExpiryDate: item.claim_expiry_date || '',
+                remarks: item.remarks || '',
+                file: item.file || null,
+                fileContent: item.file || undefined
+            }));
+
+            setBgs(formattedBGs as any);
         } catch (error) {
             console.error('Error loading BGs:', error);
-            toast.error('Failed to load BGs from Google Sheets');
+            toast.error('Failed to load BGs from Supabase');
         } finally {
             setIsLoading(false);
         }

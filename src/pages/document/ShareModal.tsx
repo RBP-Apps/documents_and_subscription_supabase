@@ -2,8 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Mail, Share2, MessageCircle, Loader } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import useDataStore from '../../store/dataStore';
-import { sendEmailViaGoogleSheets, logSharingActivity } from '../../utils/googleSheetsService';
+
+import supabase from '../../utils/supabase';
 import type { DocumentItem } from '../../store/dataStore';
+import emailjs from "emailjs-com";
+
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -83,28 +86,34 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
         // Log the WhatsApp sharing activity with expiry
         if (isBatch && batchDocuments.length > 0) {
-            batchDocuments.forEach((doc) => {
-                logSharingActivity({
-                    recipientName: recipientName,
-                    documentName: doc.documentName,
-                    documentType: doc.documentType,
-                    category: doc.category,
-                    serialNo: doc.sn,
-                    fileContent: doc.fileContent,
-                    shareMethod: 'WhatsApp',
-                    number: whatsapp
-                });
+            const logs = batchDocuments.map((doc) => ({
+                name: recipientName,
+                document_name: doc.documentName,
+                document_type: doc.documentType,
+                category: doc.category,
+                serial_no: doc.sn,
+                image: doc.fileContent,
+                share_method: 'WhatsApp',
+                number: whatsapp,
+                source_sheet: 'Documents'
+            }));
+
+            supabase.from('Shared_Documents').insert(logs).then(({ error }) => {
+                if (error) console.error("Error logging whatsapp share:", error);
             });
         } else if (documentDetails) {
-            logSharingActivity({
-                recipientName: recipientName,
-                documentName: documentName,
-                documentType: documentDetails.documentType,
+            supabase.from('Shared_Documents').insert([{
+                name: recipientName,
+                document_name: documentName,
+                document_type: documentDetails.documentType,
                 category: documentDetails.category,
-                serialNo: documentDetails.sn,
-                fileContent: fileContent,
-                shareMethod: 'WhatsApp',
-                number: whatsapp
+                serial_no: documentDetails.sn,
+                image: fileContent,
+                share_method: 'WhatsApp',
+                number: whatsapp,
+                source_sheet: 'Documents'
+            }]).then(({ error }) => {
+                if (error) console.error("Error logging whatsapp share:", error);
             });
         }
 
@@ -134,119 +143,6 @@ const ShareModal: React.FC<ShareModalProps> = ({
     };
 
 
-    function getSafeDriveLink(fileUrl: string) {
-
-        if (!fileUrl) return "";
-
-        const match = fileUrl.match(/[-\w]{25,}/);
-
-        if (!match) return fileUrl;
-
-        const fileId = match[0];
-
-        const driveUrl = `https://drive.google.com/file/d/${fileId}/view`;
-
-        // Encode to prevent Gmail preview
-        return `https://www.google.com/url?q=${encodeURIComponent(driveUrl)}`;
-    }
-    const generateEmailBody = (): string => {
-        let body = '';
-
-        if (type === 'email' || type === 'both') {
-            body += `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">`;
-
-            if (isBatch && batchDocuments.length > 0) {
-                // Batch email body
-                body += `<h2 style="color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 20px;">
-                    Shared ${batchDocuments.length} Documents
-                </h2>`;
-
-                batchDocuments.forEach((doc, index) => {
-                    body += `<div style="background: #f9fafb; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid #4f46e5;">`;
-                    body += `<h3 style="margin-top: 0; color: #374151;">Document ${index + 1}: ${doc.documentName}</h3>`;
-                    body += `<table style="width: 100%; border-collapse: collapse;">`;
-                    if (doc.sn) body += `<tr><td style="padding: 6px 0; border-bottom: 1px solid #e5e7eb;"><strong>Serial No:</strong></td><td style="padding: 6px 0; border-bottom: 1px solid #e5e7eb;">${doc.sn}</td></tr>`;
-                    if (doc.category) body += `<tr><td style="padding: 6px 0; border-bottom: 1px solid #e5e7eb;"><strong>Category:</strong></td><td style="padding: 6px 0; border-bottom: 1px solid #e5e7eb;">${doc.category}</td></tr>`;
-                    if (doc.companyName) body += `<tr><td style="padding: 6px 0; border-bottom: 1px solid #e5e7eb;"><strong>Company:</strong></td><td style="padding: 6px 0; border-bottom: 1px solid #e5e7eb;">${doc.companyName}</td></tr>`;
-                    if (doc.documentType) body += `<tr><td style="padding: 6px 0; border-bottom: 1px solid #e5e7eb;"><strong>Type:</strong></td><td style="padding: 6px 0; border-bottom: 1px solid #e5e7eb;">${doc.documentType}</td></tr>`;
-                    if (doc.renewalDate) {
-                        const date = new Date(doc.renewalDate);
-                        body += `<tr><td style="padding: 6px 0;"><strong>Renewal Date:</strong></td><td style="padding: 6px 0;">${date instanceof Date && !isNaN(date.getTime()) ? date.toLocaleDateString() : doc.renewalDate}</td></tr>`;
-                    }
-                    body += `</table>`;
-
-                    if (doc.fileContent) {
-                        const safeUrl = getSafeDriveLink(doc.fileContent);
-                        body += `
-                        <div style="margin-top: 10px;">
-                          <strong style="display: block; margin-bottom: 5px; color: #4b5563; font-size: 13px;">Document Link:</strong>
-                          <a href="${safeUrl}" target="_blank" style="color: #2563eb; text-decoration: underline; word-break: break-all; font-size: 13px;">
-                             ${safeUrl}
-                          </a>
-                        </div>`;
-                    }
-                    body += `</div>`;
-                });
-            } else {
-                // Single document email body
-                body += `<h2 style="color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 20px;">
-                    Document Shared: ${documentName}
-                </h2>`;
-
-                if (documentDetails) {
-                    body += `<div style="background: #f9fafb; padding: 15px; border-radius: 6px; margin-bottom: 20px;">`;
-                    body += `<h3 style="margin-top: 0; color: #374151;">Document Details:</h3>`;
-                    body += `<table style="width: 100%; border-collapse: collapse;">`;
-                    if (documentDetails.sn) body += `<tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Serial No:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${documentDetails.sn}</td></tr>`;
-                    if (documentDetails.category) body += `<tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Category:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${documentDetails.category}</td></tr>`;
-                    if (documentDetails.companyName) body += `<tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Company:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${documentDetails.companyName}</td></tr>`;
-                    if (documentDetails.documentType) body += `<tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Type:</strong</td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${documentDetails.documentType}</td></tr>`;
-                    if (documentDetails.renewalDate) {
-                        const date = new Date(documentDetails.renewalDate);
-                        body += `<tr><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;"><strong>Renewal Date:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">${date instanceof Date && !isNaN(date.getTime()) ? date.toLocaleDateString() : documentDetails.renewalDate}</td></tr>`;
-                    }
-                    body += `</table>`;
-                    body += `</div>`;
-                }
-
-                if (fileContent) {
-                    // Ensure preview link format (Google Drive)
-                    const safeUrl = getSafeDriveLink(fileContent);
-
-                    body += `
-<div style="margin-top:15px;">
-  <strong>Document Link:</strong><br>
-  <a href="${safeUrl}" target="_blank"
-     style="color:#2563eb; text-decoration:underline; word-break:break-all;">
-     ${safeUrl}
-  </a>
-</div>
-`;
-                }
-            }
-
-            if (message) {
-                body += `<div style="background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; border-radius: 4px; margin-bottom: 20px;">`;
-                body += `<p style="margin: 0; color: #0369a1;"><strong>Message:</strong> ${message}</p>`;
-                body += `</div>`;
-            }
-
-            // Add expiry notice to email body
-            body += `<div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin-bottom: 20px;">`;
-            body += `<p style="margin: 0; color: #92400e; font-size: 14px;">`;
-            body += `<strong>⚠️ Important:</strong> This shared link will expire in 7 days (${new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}).`;
-            body += `</p>`;
-            body += `</div>`;
-
-            body += `<div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">`;
-            body += `<p>This document was shared via Document Management System</p>`;
-            body += `<p>Shared by: ${recipientName || 'System User'}</p>`;
-            body += `</div>`;
-            body += `</div>`;
-        }
-
-        return body;
-    };
 
     const generateWhatsAppMessage = (): string => {
         let whatsappMessage = '';
@@ -302,78 +198,86 @@ const ShareModal: React.FC<ShareModalProps> = ({
         return whatsappMessage;
     };
 
-    const handleSendEmail = async (): Promise<boolean> => {
+    const handleSendEmail = async () => {
         if (!email.trim()) {
-            toast.error('Please enter a valid email address');
+            toast.error("Please enter email");
             return false;
         }
 
         setIsSending(true);
+
         try {
-            const emailBody = generateEmailBody();
-            let emailSubject = subject;
+            await emailjs.send(
+                "service_mkdtlae",
+                "template_1912vpj",
+                {
+                    recipient_name: recipientName,
+                    email: email,
+                    document_name: documentName,
+                    category: documentDetails?.category || "",
+                    document_type: documentDetails?.documentType || "",
+                    document_link: fileContent || "",
+                    message: message,
 
+                    // ✅ ADD THESE
+                    // serial_no: documentDetails?.sn || "",
+                    serial_no: documentDetails?.sn || documentDetails?.serial_no || "",
+                    company: documentDetails?.companyName || ""
+                },
+                "JN3T3k1LsQ0KSOn-A"
+            );
+
+            toast.success("Email sent successfully ✅");
+            setEmailSent(true);
+
+            // Log the Email sharing activity to Supabase
             if (isBatch && batchDocuments.length > 0) {
+                const logs = batchDocuments.map((doc) => ({
+                    name: recipientName,
+                    email: email,
+                    document_name: doc.documentName,
+                    document_type: doc.documentType,
+                    category: doc.category,
+                    serial_no: doc.sn,
+                    image: doc.fileContent,
+                    share_method: 'Email',
+                    source_sheet: 'Documents'
+                }));
 
-                if (!emailSubject) {
-                    emailSubject = `Sharing ${batchDocuments.length} Documents`;
-                }
-
-                const result = await sendEmailViaGoogleSheets({
-                    to: email,
-                    subject: emailSubject,
-                    body: emailBody,
-                    isHtml: true,
-                    documentName: `${batchDocuments.length} Documents`,
-                    recipientName: recipientName,
-                    documentType: batchDocuments[0]?.documentType,
-                    category: batchDocuments[0]?.category,
-                    serialNo: batchDocuments[0]?.sn
+                supabase.from('Shared_Documents').insert(logs).then(({ error }) => {
+                    if (error) console.error("Error logging email share:", error);
                 });
-
-                if (result.success) {
-                    setEmailSent(true);
-                    toast.success(`Email with ${batchDocuments.length} documents sent successfully!`);
-                    return true;
-                } else {
-                    toast.error(result.error || 'Failed to send email');
-                    return false;
-                }
             } else {
-                // Single document
-                if (!emailSubject) {
-                    emailSubject = `Sharing Document: ${documentName}`;
-                }
-
-                const result = await sendEmailViaGoogleSheets({
-                    to: email,
-                    subject: emailSubject,
-                    body: emailBody,
-                    isHtml: true,
-                    documentName: documentName,
-                    recipientName: recipientName,
-                    documentType: documentDetails?.documentType,
+                supabase.from('Shared_Documents').insert([{
+                    name: recipientName,
+                    email: email,
+                    document_name: documentName,
+                    document_type: documentDetails?.documentType,
                     category: documentDetails?.category,
-                    serialNo: documentDetails?.sn
+                    serial_no: documentDetails?.sn || documentDetails?.serial_no,
+                    image: fileContent,
+                    share_method: 'Email',
+                    source_sheet: 'Documents'
+                }]).then(({ error }) => {
+                    if (error) console.error("Error logging email share:", error);
                 });
-
-                if (result.success) {
-                    setEmailSent(true);
-                    toast.success('Email sent successfully!');
-                    return true;
-                } else {
-                    toast.error(result.error || 'Failed to send email');
-                    return false;
-                }
             }
+
+            return true;
+
         } catch (error) {
-            console.error('Email sending error:', error);
-            toast.error('Failed to send email');
+            console.error(error);
+            toast.error("Failed to send email ❌");
             return false;
         } finally {
             setIsSending(false);
         }
     };
+
+
+
+
+
 
     const handleSubmit = async (e: React.FormEvent): Promise<void> => {
         e.preventDefault();

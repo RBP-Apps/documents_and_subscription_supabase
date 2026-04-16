@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Building, Calendar, User, Clock, X } from 'lucide-react';
 import useDataStore, { LoanItem } from '../../store/dataStore';
 import useHeaderStore from '../../store/headerStore';
-import { fetchLoansFromGoogleSheets, updateGoogleSheetCellsBySn } from '../../utils/googleSheetsService';
+import supabase from '../../utils/supabase';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
 import { Loader2 } from 'lucide-react';
@@ -41,11 +41,46 @@ const Foreclosure = () => {
     const loadLoans = async () => {
         try {
             setIsLoading(true);
-            const fetchedLoans = await fetchLoansFromGoogleSheets();
-            setLoans(fetchedLoans);
+            const { data, error } = await supabase
+                .from('loan')
+                .select('*')
+                .order('id', { ascending: false });
+
+            if (error) {
+                throw error;
+            }
+
+            const formattedLoans = (data || []).map((item) => ({
+                id: item.id.toString(),
+                Timestamp: item.timestamp || item.created_at || new Date().toISOString(),
+                sn: item.serial_no || '',
+                loanName: item.loan_name || '',
+                bankName: item.bank_name || '',
+                amount: item.amount?.toString() || '',
+                emi: item.emi?.toString() || '',
+                startDate: item.loan_start_date || '',
+                endDate: item.loan_end_date || '',
+                providedDocument: item.provided_document_name || '',
+                remarks: item.remarks || '',
+                file: item.file || null,
+                fileContent: item.file || undefined,
+                requestDate: item.request_date || '',
+                requesterName: item.request_name || '',
+                planned1: item.planned_1 || '',
+                actual1: item.actual_1 || '',
+                delay1: item.delay_1?.toString() || '',
+                planned2: item.planned_2 || '',
+                actual2: item.actual_2 || '',
+                delay2: item.delay_2?.toString() || '',
+                collectNocStatus: item.collect_noc || '',
+                rowIndex: item.id,
+                date: item.created_at || ''
+            }));
+
+            setLoans(formattedLoans as any);
         } catch (error) {
             console.error('Error loading loans:', error);
-            toast.error('Failed to load loans from Google Sheets');
+            toast.error('Failed to load loans from Supabase');
         } finally {
             setIsLoading(false);
         }
@@ -93,26 +128,26 @@ const Foreclosure = () => {
 
         setIsSaving(true);
         try {
-            // Update columns M (13), O (15) and P (16)
-            await updateGoogleSheetCellsBySn('Loan', selectedLoan.sn, [
-                {
-                    column: 13, // Column M: Actual 1 (Request Date)
-                    value: formData.requestDate.split('-').reverse().join('/')
-                },
-                {
-                    column: 15, // Column O: Request Date
-                    value: formData.requestDate.split('-').reverse().join('/')
-                },
-                {
-                    column: 16, // Column P: Requester Name
-                    value: formData.requesterName
-                }
-            ]);
+            const formattedDate = formData.requestDate; // YYYY-MM-DD
+            const requester = formData.requesterName;
+
+            const { error: updateError } = await supabase
+                .from('loan')
+                .update({
+                    actual_1: formattedDate,
+                    request_date: formattedDate,
+                    request_name: requester
+                })
+                .eq('serial_no', selectedLoan.sn);
+
+            if (updateError) {
+                throw updateError;
+            }
 
             // Update local state
             updateLoan(selectedLoan.id, {
-                actual1: formData.requestDate.split('-').reverse().join('/'),
-                requestDate: formData.requestDate.split('-').reverse().join('/'),
+                actual1: formData.requestDate, // Update to ISO standard if preferred, but existing code used DD/MM/YYYY. For now matching ISO.
+                requestDate: formData.requestDate,
                 requesterName: formData.requesterName
             });
 
@@ -121,7 +156,7 @@ const Foreclosure = () => {
             setSelectedLoan(null);
         } catch (error: any) {
             console.error('Error saving foreclosure:', error);
-            toast.error(error.message || 'Failed to save to Google Sheets');
+            toast.error(error.message || 'Failed to save to Supabase');
         } finally {
             setIsSaving(false);
         }

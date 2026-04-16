@@ -3,7 +3,7 @@ import useDataStore, { DocumentItem, MasterItem } from '../../store/dataStore';
 import { toast } from 'react-hot-toast';
 import { X, Save, Upload, Loader2 } from 'lucide-react';
 import SearchableInput from '../../components/SearchableInput';
-import { submitToGoogleSheets, fetchMasterFromGoogleSheets } from '../../utils/googleSheetsService';
+import supabase from '../../utils/supabase';
 
 interface EditDocumentProps {
     isOpen: boolean;
@@ -16,6 +16,7 @@ const EditDocument: React.FC<EditDocumentProps> = ({ isOpen, onClose, documentId
 
     const [formData, setFormData] = useState<Partial<DocumentItem>>({});
     const [fileName, setFileName] = useState('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [remoteDocTypes, setRemoteDocTypes] = useState<string[]>([]);
     const [remoteCategories, setRemoteCategories] = useState<string[]>([]);
@@ -43,24 +44,22 @@ const EditDocument: React.FC<EditDocumentProps> = ({ isOpen, onClose, documentId
         let mounted = true;
         (async () => {
             try {
-                console.log("Fetching Master Data for Dropdowns...");
-                const rows = await fetchMasterFromGoogleSheets();
-                console.log("Master Data Fetched:", rows);
+                const { data: rows, error } = await supabase.from('master').select('document_type, category');
+                if (error) throw error;
 
                 if (!mounted) return;
 
-                const docTypes = rows
-                    .map((r: { documentType: string; category: string }) => r.documentType)
+                const docTypes = (rows || [])
+                    .map((r: any) => r.document_type)
                     .filter((v: string) => typeof v === "string" && v.trim().length > 0);
-                const cats = rows
-                    .map((r: { documentType: string; category: string }) => r.category)
+                const cats = (rows || [])
+                    .map((r: any) => r.category)
                     .filter((v: string) => typeof v === "string" && v.trim().length > 0);
 
                 setRemoteDocTypes(Array.from(new Set(docTypes)));
                 setRemoteCategories(Array.from(new Set(cats)));
             } catch (err) {
                 console.error("Failed to fetch master data", err);
-                toast.error("Could not load dropdown options (Network/CORS)");
             }
         })();
 
@@ -96,11 +95,11 @@ const EditDocument: React.FC<EditDocumentProps> = ({ isOpen, onClose, documentId
                 return;
             }
             setFileName(file.name);
+            setSelectedFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
-                // Store file name in 'file'
                 handleChange('file', file.name);
-                // Store base64 content
+                // We keep base64 just for local state/preview if needed, although we will use `selectedFile` for Supabase
                 handleChange('fileContent', reader.result as string);
             };
             reader.readAsDataURL(file);
@@ -147,134 +146,67 @@ const EditDocument: React.FC<EditDocumentProps> = ({ isOpen, onClose, documentId
                 addMasterData(newMaster);
             }
 
-            // Handle File Upload if it's new (Base64)
-            const folderId = import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
-            let fileUrl = "";
+            // Handle File Upload if it's new
+            let fileUrl = formData.fileContent || "";
 
             // Keep existing URL if it's not a data URI
             if (formData.fileContent && !formData.fileContent.startsWith("data:")) {
                 fileUrl = formData.fileContent;
             }
 
-            // If it's a new file (base64 data URI), upload it
-            if (formData.fileContent && formData.fileContent.startsWith("data:") && folderId) {
+            // If it's a new file, upload it to Supabase Storage
+            if (selectedFile) {
                 try {
-                    // Extract base64 content
-                    const base64Content = formData.fileContent.split(',')[1] || formData.fileContent;
+                    const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+                    const filePath = `doc_${Date.now()}_${cleanFileName}`;
 
-                    // Guess mime type from header if present
-                    let mimeType = 'application/octet-stream';
-                    const matches = formData.fileContent.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,/);
-                    if (matches && matches.length > 1) {
-                        mimeType = matches[1];
-                    }
+                    const { data, error: uploadError } = await supabase.storage
+                        .from("DRIVE_FOLDER")
+                        .upload(filePath, selectedFile, {
+                            cacheControl: "3600",
+                            upsert: false,
+                        });
 
-                    const uploadRes = await submitToGoogleSheets({
-                        action: "uploadFile",
-                        folderId: folderId,
-                        fileName: fileName || `doc-${Date.now()}`,
-                        fileContent: base64Content,
-                        data: {
-                            mimeType: mimeType,
-                            fileName: fileName || `doc-${Date.now()}`,
-                            base64Data: base64Content,
-                            folderId: folderId
-                        }
-                    });
+                    if (uploadError) throw uploadError;
 
-                    if (uploadRes && (uploadRes.fileUrl || uploadRes.url)) {
-                        fileUrl = uploadRes.fileUrl || uploadRes.url;
-                    } else {
-                        toast.error("File uploaded but no URL returned.");
-                    }
+                    const { data: { publicUrl } } = supabase.storage
+                        .from("DRIVE_FOLDER")
+                        .getPublicUrl(data.path);
+                    
+                    fileUrl = publicUrl;
                 } catch (err) {
                     console.error("File upload failed", err);
                     toast.error("Failed to upload new file, continuing with update...");
                 }
-            } else if (formData.fileContent && (formData.fileContent.includes("drive.google.com") || formData.fileContent.includes("docs.google.com"))) {
-                // Double check redundancy, but this block was here. 
-                // We handled this in the initialization above.
             }
 
-            // Prepare row data matching the SHEET columns:
-            // Preservation Logic: Use existing date/timestamp if available.
-            // Strict cleanup: If it contains 'T' and 'Z' (ISO), convert it back to YYYY-MM-DD HH:mm:ss
-            // If it's already clean, keep it.
-            let timestampToUse = new Date().toLocaleString();
-
-            if (formData.date && typeof formData.date === 'string') {
-                if (formData.date.includes('T') || formData.date.includes('Z')) {
-                    // It's ISO, clean it
-                    const d = new Date(formData.date);
-                    if (!isNaN(d.getTime())) {
-                        timestampToUse = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-                    }
-                } else {
-                    // Assume it's already clean or valid enough
-                    timestampToUse = formData.date;
-                }
-            } else {
-                // Fallback if empty
-                const now = new Date();
-                timestampToUse = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            // Prepare row data matching the Supabase columns
+            let formattedIssueDate = null;
+            if (formData.issueDate && formData.issueDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                formattedIssueDate = formData.issueDate;
             }
 
-            // Note: Google Sheets sometimes auto-detects date. Putting a ' before it forces string but might break other things.
-            // Ideally, sending strict "YYYY-MM-DD HH:mm:ss" without T/Z is treated as string or custom date by Sheets.
+            const dbUpdatePayload = {
+                document_name: formData.documentName,
+                document_type: formData.documentType,
+                category: formData.category,
+                company_name: formData.companyName,
+                name: formData.companyName, // mapped from pName in your logic
+                need_renewal: formData.needsRenewal,
+                renewal_date: formData.needsRenewal ? (formData.renewalDate || null) : null,
+                image: fileUrl || null,
+                issue_date: formattedIssueDate,
+                concern_person_name: formData.concernPersonName || null,
+                concern_person_mobile: formData.concernPersonMobile || null,
+                concern_person_department: formData.concernPersonDepartment || null
+            };
 
-            // Format Dates for Submission
-            const now = new Date();
+            const { error: updateError } = await supabase
+                .from('Add New Document')
+                .update(dbUpdatePayload)
+                .eq('serial_no', formData.sn);
 
-            // Format Renewal Date: YYYY-MM-DD HH:mm:ss (For Google Sheets Formulas)
-            let formattedRenewalDate = "";
-            if (formData.renewalDate) {
-                // Check if it matches YYYY-MM-DD
-                if (formData.renewalDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    const hours = String(now.getHours()).padStart(2, '0');
-                    const minutes = String(now.getMinutes()).padStart(2, '0');
-                    formattedRenewalDate = `${formData.renewalDate} ${hours}:${minutes}`;
-                } else {
-                    // Try to parse if it's already in another format or just pass through if not simple date
-                    formattedRenewalDate = formData.renewalDate;
-                }
-            }
-
-            // Format Issue Date: YYYY-MM-DD (ISO 8601 to avoid DD/MM vs MM/DD confusion)
-            let formattedIssueDate = "";
-            if (formData.issueDate) {
-                if (formData.issueDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    formattedIssueDate = formData.issueDate; // Keep YYYY-MM-DD
-                } else {
-                    formattedIssueDate = formData.issueDate;
-                }
-            }
-
-            const sheetRow = [
-                timestampToUse,                               // 0: Timestamp (Preserves existing)
-                formData.sn,                                  // 1: Serial No
-                formData.documentName,                        // 2: Document name
-                formData.documentType,                        // 3: Document Type
-                formData.category,                            // 4: Category
-                formData.companyName,                         // 5: Name
-                formData.needsRenewal ? "Yes" : "No",         // 6: Renewal
-                formattedRenewalDate,                         // 7: Renewal Date (DD/MM/YYYY HH:MM)
-                fileUrl,                                      // 8: Image URL
-                null,                                         // 9: Status (Null to avoid blocking array formulas)
-                null,                                         // 10: Planned1
-                null,                                         // 11: Actual1
-                formattedIssueDate,                           // 12: Issue Date (DD/MM/YYYY)
-                formData.concernPersonName || "",             // 13: Concern Name (Col N)
-                formData.concernPersonMobile || "",           // 14: Concern Mobile (Col O)
-                formData.concernPersonDepartment || ""        // 15: Concern Dept (Col P)
-            ];
-
-            // Submit Update with rowIndex if available
-            await submitToGoogleSheets({
-                action: "update",
-                sheetName: "Documents",
-                data: sheetRow,
-                rowIndex: formData.rowIndex // Passed if it exists (from fetch)
-            });
+            if (updateError) throw updateError;
 
             // Update Local State
             updateDocument(documentId, {
@@ -288,7 +220,7 @@ const EditDocument: React.FC<EditDocumentProps> = ({ isOpen, onClose, documentId
 
         } catch (error) {
             console.error("Update failed:", error);
-            toast.error("Failed to update document in Google Sheets.");
+            toast.error("Failed to update document.");
         } finally {
             setIsSubmitting(false);
         }

@@ -3,7 +3,7 @@ import { Plus, X, Check, Search, Edit2, Trash2 } from 'lucide-react';
 import useAuthStore, { User as UserType } from '../store/authStore';
 import useHeaderStore from '../store/headerStore';
 import { toast } from 'react-hot-toast';
-import { submitToGoogleSheets, fetchUsersFromGoogleSheets } from '../utils/googleSheetsService';
+import supabase from '../utils/supabase';
 
 const Settings = () => {
     const { setTitle } = useHeaderStore();
@@ -13,26 +13,33 @@ const Settings = () => {
     useEffect(() => {
         setTitle('Settings');
 
-        // Fetch users from Google Sheets
         const loadUsers = async () => {
             setIsLoading(true);
             try {
-                const fetchedUsers = await fetchUsersFromGoogleSheets();
+                const { data: fetchedUsers, error } = await supabase
+                    .from('login')
+                    .select('*')
+                    .eq('deleted', false);
+
+                if (error) throw error;
+
                 if (fetchedUsers && fetchedUsers.length > 0) {
-                    // Filter out users marked as "Deleted" in Column F (index 5)
-                    const activeUsers = fetchedUsers.filter(user => {
-                        // Assuming the user object has a 'deleted' property or we check Column F
-                        // Based on your Google Sheets structure: [Name, Username, Password, Role, Pages, Deleted]
-                        // Column F (index 5) contains deletion status
-                        const isDeleted = user.deleted === 'Deleted' ||
-                            (Array.isArray(user.rawData) && user.rawData[5] === 'Deleted');
-                        return !isDeleted;
-                    });
+                    const activeUsers = fetchedUsers.map((user: any) => ({
+                        id: user.username || user.id?.toString(), // Treating username as 'id' for the app context, or fallback to real id
+                        name: user.name || '',
+                        password: user.password || '',
+                        role: user.role || 'user',
+                        permissions: user.pages ? user.pages.split(',').map((p: string) => p.trim()).filter(Boolean) : [],
+                        deleted: user.deleted || false,
+                        originalId: user.id // keep the actual bigserial id
+                    }));
                     setUsers(activeUsers);
+                } else {
+                    setUsers([]);
                 }
             } catch (error) {
                 console.error("Failed to load users", error);
-                toast.error("Failed to load users from sheet");
+                toast.error("Failed to load users from Supabase");
             } finally {
                 setIsLoading(false);
             }
@@ -99,52 +106,63 @@ const Settings = () => {
         }
 
         if (editingUser) {
-            // Update existing user
-            updateUser(editingUser.id, formData);
-
             try {
-                toast.loading("Updating user in sheet...", { id: "update-user" });
-                await submitToGoogleSheets({
-                    action: 'updateCellsBySn',
-                    sheetName: 'Pass',
-                    sn: editingUser.id,
-                    cellUpdates: JSON.stringify([
-                        { column: 3, value: formData.password }, // Column C: Password
-                        { column: 4, value: formData.role },     // Column D: Role
-                        { column: 5, value: (formData.permissions || []).join(', ') } // Column E: Permissions
-                    ])
-                });
-                toast.success('User updated locally and in sheet', { id: "update-user" });
+                toast.loading("Updating user in Supabase...", { id: "update-user" });
+                
+                const { error } = await supabase
+                    .from('login')
+                    .update({
+                        password: formData.password,
+                        role: formData.role,
+                        pages: (formData.permissions || []).join(', ')
+                    })
+                    .eq('username', editingUser.id);
+                    
+                if (error) throw error;
+                
+                // Update existing user locally
+                updateUser(editingUser.id, formData);
+                
+                toast.success('User updated successfully', { id: "update-user" });
             } catch (error) {
-                console.error("Failed to update sheet", error);
-                toast.error('User updated locally but failed to save to sheet', { id: "update-user" });
+                console.error("Failed to update user", error);
+                toast.error('Failed to update user in Supabase', { id: "update-user" });
             }
         } else {
-            // Add new user
-            const success = addUser(formData as UserType);
-            if (success) {
-                try {
-                    toast.loading("Saving user to sheet...", { id: "save-user" });
-                    await submitToGoogleSheets({
-                        action: 'insert',
-                        sheetName: 'Pass',
-                        data: [
-                            formData.name, // A: Name
-                            formData.id, // B: username
-                            formData.password, // C: Password
-                            formData.role, // D: Role
-                            (formData.permissions || []).join(', '), // E: Pages
-                            '' // F: Deploy Link
-                        ]
-                    });
-                    toast.success('User added and saved to sheet', { id: "save-user" });
-                } catch (error) {
-                    console.error("Failed to save to sheet", error);
-                    toast.error('User added locally but failed to save to sheet', { id: "save-user" });
+            try {
+                toast.loading("Saving user to Supabase...", { id: "save-user" });
+                
+                const { error } = await supabase
+                    .from('login')
+                    .insert([{
+                        name: formData.name,
+                        username: formData.id,
+                        password: formData.password,
+                        role: formData.role,
+                        pages: (formData.permissions || []).join(', '),
+                        deleted: false
+                    }]);
+                    
+                if (error) {
+                    // Check for unique violation (e.g., duplicate username if constraint exists)
+                    if (error.code === '23505') {
+                         toast.error('Username already exists', { id: "save-user" });
+                    } else {
+                         throw error;
+                    }
+                    return;
                 }
-            } else {
-                toast.error('User already exists');
-                return;
+                
+                // Add new user locally
+                const success = addUser(formData as UserType);
+                if (!success) {
+                    toast.error('User already exists locally', { id: "save-user" });
+                } else {
+                    toast.success('User added successfully', { id: "save-user" });
+                }
+            } catch (error) {
+                console.error("Failed to save user", error);
+                toast.error('Failed to save to Supabase', { id: "save-user" });
             }
         }
         setIsModalOpen(false);
@@ -155,23 +173,20 @@ const Settings = () => {
             try {
                 toast.loading("Deleting user...", { id: "delete-user" });
 
-                // First, delete from local state
-                deleteUser(id);
+                const { error } = await supabase
+                    .from('login')
+                    .update({ deleted: true })
+                    .eq('username', id);
 
-                // Then, mark as deleted in Google Sheets (Column F = index 6)
-                await submitToGoogleSheets({
-                    action: 'updateCellsBySn',
-                    sheetName: 'Pass',
-                    sn: id, // Use username/ID as Serial No
-                    cellUpdates: JSON.stringify([
-                        { column: 6, value: 'Deleted' } // Column F is index 6
-                    ])
-                });
+                if (error) throw error;
+
+                // Then, delete from local state
+                deleteUser(id);
 
                 toast.success('User marked as deleted', { id: "delete-user" });
             } catch (error) {
-                console.error("Failed to mark user as deleted in sheet", error);
-                toast.error('User deleted locally but failed to update sheet', { id: "delete-user" });
+                console.error("Failed to mark user as deleted in Supabase", error);
+                toast.error('Failed to update Supabase', { id: "delete-user" });
             }
         }
     };

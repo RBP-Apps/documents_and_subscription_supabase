@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import useDataStore, { SubscriptionItem, SubscriptionRenewalItem } from '../../store/dataStore';
-import { submitToGoogleSheets, updateGoogleSheetCellsBySn, fetchSubscriptionRenewalHistoryFromGoogleSheets } from '../../utils/googleSheetsService';
 import useHeaderStore from '../../store/headerStore';
 import { RotateCcw, X, Check, Save, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
 import { syncSubscriptions } from '../../utils/subscriptionSync';
+import supabase from '../../utils/supabase';
 
 const SubscriptionRenewal = () => {
     const { setTitle } = useHeaderStore();
@@ -21,7 +21,17 @@ const SubscriptionRenewal = () => {
             setSubscriptions(subsData);
 
             // 2. Fetch Renewal History
-            const renewalData = await fetchSubscriptionRenewalHistoryFromGoogleSheets();
+            const { data: renewalRecords, error: renewalError } = await supabase
+                .from('RENEWAL')
+                .select('*');
+            
+            if (renewalError) throw renewalError;
+
+            const renewalData = (renewalRecords || []).map((r: any) => ({
+                renewalNo: r.renewal_no,
+                sn: r.subscription_no,
+                status: r.status
+            }));
 
             // 3. Map Renewal Data
             const mappedHistory = renewalData.map((r, index) => {
@@ -147,56 +157,42 @@ const SubscriptionRenewal = () => {
         try {
             setIsLoading(true);
 
-            // 2. Submit to "RENEWAL" Sheet
-            const renewalPayload = [
-                (() => {
-                    const now = new Date();
-                    const year = now.getFullYear();
-                    const month = String(now.getMonth() + 1).padStart(2, '0');
-                    const day = String(now.getDate()).padStart(2, '0');
-                    const hours = String(now.getHours()).padStart(2, '0');
-                    const minutes = String(now.getMinutes()).padStart(2, '0');
-                    return `${year}-${month}-${day} ${hours}:${minutes}`;
-                })(), // Column A
-                rnNumber,                    // Column B
-                selectedSub.sn,              // Column C
-                'Admin',                     // Column D
-                renewalAction                // Column E
-            ];
+            // 2. Submit to "RENEWAL" Table
+            const renewalPayload = {
+               renewal_no: rnNumber,
+               subscription_no: selectedSub.sn,
+               approved_by: 'Admin',
+               status: renewalAction
+            };
 
-            await submitToGoogleSheets({
-                action: 'insert',
-                sheetName: 'RENEWAL',
-                data: renewalPayload
-            });
+            const { error: insertError } = await supabase
+                .from('RENEWAL')
+                .insert([renewalPayload]);
+                
+            if (insertError) throw insertError;
 
             // Calculate new count
             const currentCount = parseInt(selectedSub.renewalCount || '0', 10);
             const newCount = currentCount + 1;
 
-            // 3. Update "Subscription" Sheet
-            // Logic: Update Actual 1 (J/10), Renewal Status (L/12), Renewal Count (M/13)
-            // And CLEAR: Actual 2 (O/15), Approval Status (Q/17), Actual 3 (S/19)
-            const formattedDate = (() => {
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                return `${year}-${month}-${day} ${hours}:${minutes}`;
-            })();
+            // 3. Update "create_subscription" Table
+            // Logic: Update actual_1, renewal_status, renewal_count
+            // And CLEAR: actual_2, approval_status, actual_3
+            const formattedDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-            const cellUpdates = [
-                { column: 10, value: formattedDate }, // Actual 1 (J)
-                { column: 12, value: renewalAction }, // Renewal Status (L)
-                { column: 13, value: String(newCount) }, // Renewal Count (M)
-                { column: 15, value: "" }, // Actual 2 (O)
-                { column: 17, value: "" }, // Approval Status (Q)
-                { column: 19, value: "" }  // Actual 3 (S)
-            ];
+            const { error: updateError } = await supabase
+                .from('create_subscription')
+                .update({
+                    actual_1: formattedDate,
+                    renewal_status: renewalAction,
+                    renewal_count: newCount,
+                    actual_2: null,
+                    approval_status: null,
+                    actual_3: null
+                })
+                .eq('serial_no', selectedSub.sn);
 
-            await updateGoogleSheetCellsBySn('Subscription', selectedSub.sn, cellUpdates);
+            if (updateError) throw updateError;
 
             // 4. Update Local State
             const newItem: SubscriptionRenewalItem = {

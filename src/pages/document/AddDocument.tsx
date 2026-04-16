@@ -3,10 +3,7 @@ import useDataStore, { DocumentItem } from "../../store/dataStore";
 import { toast } from "react-hot-toast";
 import { X, Save, Plus, Upload, Trash2, Loader2 } from "lucide-react";
 import SearchableInput from "../../components/SearchableInput";
-import {
-  fetchMasterFromGoogleSheets,
-  submitToGoogleSheets,
-} from "../../utils/googleSheetsService";
+import supabase from "../../utils/supabase";
 
 interface DocumentEntry {
   id: string;
@@ -82,30 +79,22 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
     let mounted = true;
     (async () => {
       try {
-        const rows = await fetchMasterFromGoogleSheets();
+        const { data: rows, error } = await supabase
+          .from("master")
+          .select("document_type, category, company_name");
+
+        if (error) throw error;
         if (!mounted) return;
 
-        const docTypes = rows
-          .map(
-            (r: {
-              documentType: string;
-              category: string;
-              companyName: string;
-            }) => r.documentType,
-          )
-          .filter((v: string) => typeof v === "string" && v.trim().length > 0);
-        const cats = rows
-          .map(
-            (r: {
-              documentType: string;
-              category: string;
-              companyName: string;
-            }) => r.category,
-          )
-          .filter((v: string) => typeof v === "string" && v.trim().length > 0);
+        const docTypes = (rows || [])
+          .map((r) => r.document_type)
+          .filter((v) => typeof v === "string" && v.trim().length > 0);
+        const cats = (rows || [])
+          .map((r) => r.category)
+          .filter((v) => typeof v === "string" && v.trim().length > 0);
 
-        setRemoteDocTypes(Array.from(new Set(docTypes)));
-        setRemoteCategories(Array.from(new Set(cats)));
+        setRemoteDocTypes(Array.from(new Set(docTypes as string[])));
+        setRemoteCategories(Array.from(new Set(cats as string[])));
       } catch (err) {
         console.error(err);
       }
@@ -228,49 +217,42 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
 
     setIsSubmitting(true);
 
-    // FETCH LATEST DATA: Critical for multi-user SN generation
-    // Frontend SN generation removed
-
-    const folderId = import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
-
-
     try {
       const newDocuments: DocumentItem[] = [];
 
       // Create an array to store file upload results
       const uploadResults: Array<{ index: number, fileUrl: string | null }> = [];
 
-      // First, upload all files sequentially with delay
+      // First, upload all files directly to Supabase Storage
       for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
 
-        if (entry.file && entry.fileContent && folderId) {
+        if (entry.file) {
           try {
-            // Add delay between uploads (1 second gap) to avoid Google Drive rate limits
-            if (i > 0) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
             console.log(`Uploading file ${i + 1}: ${entry.fileName}`);
+            
+            // Clean filename and add timestamp to avoid collisons
+            const cleanFileName = entry.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+            const filePath = `${Date.now()}_${cleanFileName}`;
 
-            const uploadRes = await submitToGoogleSheets({
-              action: "uploadFile",
-              sheetName: "Documents",
-              data: {
-                base64Data: entry.fileContent,
-                fileName: entry.fileName,
-                mimeType: entry.file.type,
-                folderId: folderId,
-              },
-            });
+            const { data, error: uploadError } = await supabase.storage
+              .from("DRIVE_FOLDER")
+              .upload(filePath, entry.file, {
+                cacheControl: "3600",
+                upsert: false,
+              });
 
-            if (uploadRes && uploadRes.fileUrl) {
-              console.log(`✅ Upload successful for file ${i + 1}`);
-              uploadResults.push({ index: i, fileUrl: uploadRes.fileUrl });
-            } else {
-              console.error(`❌ Upload failed for file ${i + 1}`);
+            if (uploadError) {
+              console.error(`❌ Upload failed for file ${i + 1}:`, uploadError);
               uploadResults.push({ index: i, fileUrl: null });
               toast.error(`File ${entry.fileName} upload failed. Saving without file.`);
+            } else {
+              const { data: { publicUrl } } = supabase.storage
+                .from("DRIVE_FOLDER")
+                .getPublicUrl(data.path);
+              
+              console.log(`✅ Upload successful for file ${i + 1}`);
+              uploadResults.push({ index: i, fileUrl: publicUrl });
             }
           } catch (uploadErr) {
             console.error(`❌ Upload error for file ${i + 1}:`, uploadErr);
@@ -289,93 +271,87 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
           const exists = masterData?.some(
             (m) =>
               m.companyName.toLowerCase() === entry.name.toLowerCase() &&
-              m.documentType.toLowerCase() ===
-              entry.documentType.toLowerCase() &&
+              m.documentType.toLowerCase() === entry.documentType.toLowerCase() &&
               m.category.toLowerCase() === entry.category.toLowerCase(),
           );
 
           if (!exists) {
+            // Save to Local store
             addMasterData({
               id: Math.random().toString(36).substr(2, 9),
               companyName: entry.name,
               documentType: entry.documentType,
               category: entry.category,
             });
+
+            // Save to Supabase master table
+            await supabase.from("master").insert([{
+              company_name: entry.name,
+              document_type: entry.documentType,
+              category: entry.category,
+            }]);
           }
         }
 
-
-
         // Get file URL from upload results
         const uploadResult = uploadResults.find(r => r.index === index);
-        const fileUrl = uploadResult?.fileUrl || "";
+        const fileUrl = uploadResult?.fileUrl || null;
 
-        // 2. Prepare Payload
-        const now = new Date();
-        const formattedTimestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
-
-        // Format Renewal Date: YYYY-MM-DD HH:mm (For Google Sheets Formulas)
-        let formattedRenewalDate = "";
+        let formattedRenewalDate = null;
         if (entry.renewalDate) {
-          const hours = String(now.getHours()).padStart(2, "0");
-          const minutes = String(now.getMinutes()).padStart(2, "0");
-          formattedRenewalDate = `${entry.renewalDate} ${hours}:${minutes}`;
+          formattedRenewalDate = entry.renewalDate; // Use YYYY-MM-DD
         }
 
-        // Format Issue Date: YYYY-MM-DD (ISO 8601 to avoid DD/MM vs MM/DD confusion)
-        let formattedIssueDate = "";
+        let formattedIssueDate = null;
         if (entry.issueDate) {
-          formattedIssueDate = entry.issueDate;
+          formattedIssueDate = entry.issueDate; // Use YYYY-MM-DD
         }
 
-        // Use empty strings for optional fields if not filled
-        const sheetData = {
-          Timestamp: formattedTimestamp,
-          "Serial No": "", // Leave empty for backend to generate
-          "Document name": entry.documentName,
-          "Document Type": entry.documentType || "", // Empty if not filled
-          Category: entry.category || "", // Empty if not filled
-          Name: entry.name || "", // Empty if not filled
-          "Need Renewal": entry.needsRenewal ? "Yes" : "No",
-          "Renewal Date": formattedRenewalDate,
-          Image: fileUrl || "",
-          issueDate: formattedIssueDate,
-          concernPersonName: entry.concernPersonName || "", // Empty if not filled
-          concernPersonMobile: entry.concernPersonMobile || "", // Empty if not filled
-          concernPersonDepartment: entry.concernPersonDepartment || "", // Empty if not filled
-          CompanyName: entry.companyName || "", // Empty if not filled
+        // 2. Prepare Payload for Supabase "Add New Document" table
+        const supabaseData = {
+          document_name: entry.documentName,
+          document_type: entry.documentType || null,
+          category: entry.category || null,
+          name: entry.name || null,
+          need_renewal: entry.needsRenewal,
+          renewal_date: formattedRenewalDate,
+          image: fileUrl || null,
+          issue_date: formattedIssueDate,
+          concern_person_name: entry.concernPersonName || null,
+          concern_person_mobile: entry.concernPersonMobile || null,
+          concern_person_department: entry.concernPersonDepartment || null,
+          company_name: entry.companyName || null,
         };
 
         // 3. Submit Document
-        let serverResponseSN = "";
+        let serverResponseSN = "Pending";
         try {
-          const res = await submitToGoogleSheets({
-            action: "insert",
-            sheetName: "Documents",
-            data: [
-              sheetData.Timestamp, // A
-              sheetData["Serial No"], // B - will be empty string, server generates it
-              sheetData["Document name"], // C
-              sheetData["Document Type"], // D
-              sheetData.Category, // E
-              sheetData.Name, // F: Name (user entered)
-              sheetData["Need Renewal"], // G
-              sheetData["Renewal Date"], // H
-              sheetData.Image, // I
-              null, // J: Status
-              null, // K: Planned1
-              null, // L: Actual1
-              sheetData.issueDate, // M
-              sheetData.concernPersonName, // N
-              sheetData.concernPersonMobile, // O
-              sheetData.concernPersonDepartment, // P
-              sheetData.CompanyName, // Q: Company Name (from dropdown)
-            ],
-          });
+          const { data: insertedData, error } = await supabase
+            .from("Add New Document")
+            .insert([supabaseData])
+            .select("id, serial_no")
+            .single();
 
-          console.log(`✅ Document ${index + 1} saved to Google Sheets`);
-          if (res && res.serialNo) {
-            serverResponseSN = res.serialNo;
+          if (error) throw error;
+          
+          console.log(`✅ Document ${index + 1} saved to Supabase`);
+          
+          if (insertedData && insertedData.id) {
+            // Generate the serial number using auto-incremented id
+            const generatedSN = `SN-${insertedData.id}`;
+            
+            // Update the record with generated serial_no
+            const { error: updateError } = await supabase
+              .from("Add New Document")
+              .update({ serial_no: generatedSN })
+              .eq("id", insertedData.id);
+
+            if (updateError) {
+              console.warn("Could not update serial number", updateError);
+              serverResponseSN = insertedData.serial_no || insertedData.id.toString();
+            } else {
+              serverResponseSN = generatedSN;
+            }
           }
         } catch (error) {
           console.error(`❌ Error saving document ${index + 1}:`, error);

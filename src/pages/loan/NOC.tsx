@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Clock, X, FileCheck } from 'lucide-react';
 import useDataStore from '../../store/dataStore';
 import useHeaderStore from '../../store/headerStore';
-import { fetchLoansFromGoogleSheets, updateGoogleSheetCellsBySn } from '../../utils/googleSheetsService';
+import supabase from '../../utils/supabase';
 import { toast } from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
 import { formatDate } from '../../utils/dateFormatter';
@@ -20,11 +20,46 @@ const LoanNOC = () => {
     const loadLoans = async () => {
         try {
             setIsLoading(true);
-            const fetchedLoans = await fetchLoansFromGoogleSheets();
-            setLoans(fetchedLoans);
+            const { data, error } = await supabase
+                .from('loan')
+                .select('*')
+                .order('id', { ascending: false });
+
+            if (error) {
+                throw error;
+            }
+
+            const formattedLoans = (data || []).map((item) => ({
+                id: item.id.toString(),
+                Timestamp: item.timestamp || item.created_at || new Date().toISOString(),
+                sn: item.serial_no || '',
+                loanName: item.loan_name || '',
+                bankName: item.bank_name || '',
+                amount: item.amount?.toString() || '',
+                emi: item.emi?.toString() || '',
+                startDate: item.loan_start_date || '',
+                endDate: item.loan_end_date || '',
+                providedDocument: item.provided_document_name || '',
+                remarks: item.remarks || '',
+                file: item.file || null,
+                fileContent: item.file || undefined,
+                requestDate: item.request_date || '',
+                requesterName: item.request_name || '',
+                planned1: item.planned_1 || '',
+                actual1: item.actual_1 || '',
+                delay1: item.delay_1?.toString() || '',
+                planned2: item.planned_2 || '',
+                actual2: item.actual_2 || '',
+                delay2: item.delay_2?.toString() || '',
+                collectNocStatus: item.collect_noc || '',
+                rowIndex: item.id,
+                date: item.created_at || ''
+            }));
+
+            setLoans(formattedLoans as any);
         } catch (error) {
             console.error('Error loading loans:', error);
-            toast.error('Failed to load loans from Google Sheets');
+            toast.error('Failed to load loans from Supabase');
         } finally {
             setIsLoading(false);
         }
@@ -79,19 +114,19 @@ const LoanNOC = () => {
 
         setIsSaving(true);
         try {
-            const formattedDate = nocDate.split('-').reverse().join('/');
+            const formattedDate = nocDate; // keep as YYYY-MM-DD
             
-            // Update column T (20) for Collect NOC Status and R (18) for Actual 2
-            await updateGoogleSheetCellsBySn('Loan', selectedLoan.sn, [
-                {
-                    column: 18, // Column R: Actual 2
-                    value: formattedDate
-                },
-                {
-                    column: 20, // Column T: Collect NOC Status
-                    value: collectNoc
-                }
-            ]);
+            const { error: updateError } = await supabase
+                .from('loan')
+                .update({
+                    actual_2: formattedDate,
+                    collect_noc: collectNoc
+                })
+                .eq('serial_no', selectedLoan.sn);
+
+            if (updateError) {
+                throw updateError;
+            }
 
             // Update local state
             updateLoan(selectedLoan.id, {
@@ -104,7 +139,7 @@ const LoanNOC = () => {
             setSelectedLoan(null);
         } catch (error: any) {
             console.error('Error saving NOC status:', error);
-            toast.error(error.message || 'Failed to save to Google Sheets');
+            toast.error(error.message || 'Failed to save to Supabase');
         } finally {
             setIsSaving(false);
         }

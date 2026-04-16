@@ -15,7 +15,7 @@ const AllSubscriptions = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSubscriptionsFromGoogleSheets = async () => {
+  const fetchSubscriptions = async () => {
     if (loading) return;
     try {
       setLoading(true);
@@ -30,17 +30,29 @@ const AllSubscriptions = () => {
     }
   };
 
+  const formatDate = (date) => {
+  if (!date) return "-";
+  const d = new Date(date);
+
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+
+  return `${day}-${month}-${year}`;
+};
+
+
   useEffect(() => {
     setTitle('All Subscriptions');
-    fetchSubscriptionsFromGoogleSheets();
+    fetchSubscriptions();
   }, [setTitle]);
 
   const handleRefresh = () => {
-    fetchSubscriptionsFromGoogleSheets();
+    fetchSubscriptions();
   };
 
   const handleAddSuccess = () => {
-    fetchSubscriptionsFromGoogleSheets();
+    fetchSubscriptions();
   };
 
   const filteredData = useMemo(() => {
@@ -67,7 +79,7 @@ const AllSubscriptions = () => {
       <div className="flex justify-center items-center min-h-screen">
         <div className="flex flex-col items-center gap-4">
           <Loader className="h-8 w-8 text-indigo-600 animate-spin" />
-          <p className="text-gray-600">Loading subscriptions from Google Sheets...</p>
+          <p className="text-gray-600">Loading subscriptions...</p>
         </div>
       </div>
     );
@@ -99,7 +111,7 @@ const AllSubscriptions = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-800">All Subscriptions</h1>
             <p className="text-gray-500 text-sm mt-1">
-              Track your recurring payments from Google Sheets
+              Track your recurring payments
               {subscriptions.length > 0 && (
                 <span className="ml-2 text-xs text-green-600">
                   ({subscriptions.length} records)
@@ -195,7 +207,7 @@ const AllSubscriptions = () => {
                         {item.status}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{item.requestedDate}</td>
+                    <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{formatDate(item.requestedDate)}</td>
                     <td className="px-3 py-2 font-medium text-gray-900">{item.companyName}</td>
                     <td className="px-3 py-2 text-gray-700">{item.subscriberName}</td>
                     <td className="px-3 py-2 font-medium text-indigo-600">{item.subscriptionName}</td>

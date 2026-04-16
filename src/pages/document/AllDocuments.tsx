@@ -18,10 +18,7 @@ import EditDocument from "./EditDocument";
 import ShareModal from "./ShareModal";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { formatDate } from "../../utils/dateFormatter";
-import {
-  fetchDocumentsFromGoogleSheets,
-  submitToGoogleSheets,
-} from "../../utils/googleSheetsService";
+import supabase from "../../utils/supabase";
 import { toast } from "react-hot-toast";
 import type { DocumentItem } from "../../store/dataStore";
 
@@ -74,15 +71,44 @@ const AllDocuments = () => {
       setIsLoading(true);
       setError(null);
 
-      const fetchedDocs = await fetchDocumentsFromGoogleSheets();
-      const uniqueDocs = deduplicateDocuments(fetchedDocs);
+      const { data, error } = await supabase
+        .from('Add New Document')
+        .select('*')
+        .eq('is_deleted', false);
 
-      console.log(`Loaded ${uniqueDocs.length} documents from sheet`);
+      if (error) throw error;
+
+      const mappedDocs: DocumentItem[] = (data || []).map(doc => ({
+        id: doc.id ? doc.id.toString() : Math.random().toString(),
+        sn: doc.serial_no || (doc.id ? `SN-${doc.id}` : ''),
+        documentName: doc.document_name || '',
+        documentType: doc.document_type || '',
+        category: doc.category || '',
+        companyName: doc.company_name || '',
+        pName: doc.name || '',
+        needsRenewal: doc.need_renewal || false,
+        renewalDate: doc.renewal_date || undefined,
+        file: doc.image || null,
+        fileContent: doc.image || '', // Using URL for view file
+        date: doc.created_at || '',
+        status: doc.is_deleted ? 'Deleted' : 'Active',
+        issueDate: doc.issue_date || undefined,
+        concernPersonName: doc.concern_person_name || undefined,
+        concernPersonMobile: doc.concern_person_mobile || undefined,
+        concernPersonDepartment: doc.concern_person_department || undefined,
+        companyBranch: doc.company_name || '',
+        sharedExpiryDate: null,
+        lastSharedAt: '',
+      }));
+
+      const uniqueDocs = deduplicateDocuments(mappedDocs);
+
+      console.log(`Loaded ${uniqueDocs.length} documents from Supabase`);
       setDocuments(uniqueDocs);
       // Replace store data instead of appending to avoid staleness
       setStoreDocuments(uniqueDocs);
     } catch (err: unknown) {
-      console.error("Error loading documents from Google Sheets:", err);
+      console.error("Error loading documents from Supabase:", err);
       const errorMessage =
         err instanceof Error ? err.message : "Failed to load documents";
 
@@ -191,37 +217,17 @@ const AllDocuments = () => {
       setSelectedIds(newSelected);
     }
 
-    if (doc && doc.rowIndex) {
+    if (doc && doc.id && !isNaN(Number(doc.id))) {
       try {
         toast.loading("Deleting from cloud...", { id: "delete-toast" });
-        const sheetRow = [
-          doc.date || new Date().toLocaleString(),
-          doc.sn,
-          doc.documentName,
-          doc.documentType,
-          doc.category,
-          doc.pName || "", // Column F: Name (user entered name)
-          doc.needsRenewal ? "Yes" : "No",
-          doc.renewalDate
-            ? new Date(doc.renewalDate).toLocaleDateString("en-GB")
-            : "",
-          doc.fileContent || "",
-          "Deleted",
-          null, // Column K: Planned1
-          null, // Column L: Actual1
-          doc.issueDate || "", // Column M
-          doc.concernPersonName || "", // Column N
-          doc.concernPersonMobile || "", // Column O
-          doc.concernPersonDepartment || "", // Column P
-          doc.companyName || "", // Column Q: Company Name
-        ];
+        
+        const { error } = await supabase
+          .from('Add New Document')
+          .update({ is_deleted: true })
+          .eq('id', Number(doc.id));
 
-        await submitToGoogleSheets({
-          action: "update",
-          sheetName: "Documents",
-          data: sheetRow,
-          rowIndex: doc.rowIndex,
-        });
+        if (error) throw error;
+        
         toast.success("Document deleted from cloud", { id: "delete-toast" });
       } catch (error) {
         console.error("Failed to delete from cloud", error);
@@ -494,7 +500,7 @@ const AllDocuments = () => {
           <div className="hidden md:flex flex-col bg-white rounded-xl shadow-input overflow-hidden h-[calc(100vh-350px)]">
             <div className="overflow-y-auto flex-1">
               <table className="w-full text-center border-collapse">
-                <thead className="sticky top-0 z-20 bg-gray-50 shadow-sm">
+                <thead className="sticky top-0 z-20 bg-gray-50 shadow-sm text-nowrap">
                   <tr className="border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
                     <th className="px-3 py-2 w-10 text-center bg-gray-50">
                       <input
@@ -554,7 +560,7 @@ const AllDocuments = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="text-sm divide-y divide-gray-50">
+                <tbody className="text-sm divide-y divide-gray-50 text-center">
                   {filteredData.map((item) => (
                     <tr
                       key={item.id}
@@ -672,7 +678,7 @@ const AllDocuments = () => {
                       <td className="px-3 py-2 font-medium text-gray-900 text-center">
                         {item.pName || "-"}
                       </td>
-                      <td className="px-3 py-2 text-gray-700 font-mono text-xs text-center">
+                      <td className="px-3 py-2 text-gray-700 font-mono text-xs text-center text-nowrap">
                         {formatDate(item.issueDate)}
                       </td>
                       <td className="px-3 py-2 text-center">

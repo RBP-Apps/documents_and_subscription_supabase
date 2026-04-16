@@ -10,8 +10,8 @@ import {
 } from 'lucide-react';
 import useDataStore from '../store/dataStore';
 import useHeaderStore from '../store/headerStore';
-import { fetchDocumentsFromGoogleSheets, fetchLoansFromGoogleSheets } from '../utils/googleSheetsService';
 import { syncSubscriptions } from '../utils/subscriptionSync';
+import supabase from '../utils/supabase';
 import { useNavigate } from 'react-router-dom';
 import {
     Tooltip,
@@ -50,29 +50,77 @@ const Dashboard = () => {
     useEffect(() => {
         setTitle('Overview');
         const loadData = async () => {
-             // Fetch Documents
-             try {
-                const docs = await fetchDocumentsFromGoogleSheets();
-                setDocuments(docs);
-             } catch (err) {
-                console.error("Error fetching docs", err);
-             }
-             
-             // Fetch Loans
-             try {
-                const loansData = await fetchLoansFromGoogleSheets();
-                setLoans(loansData);
-             } catch (err) {
-                 console.error("Error fetching loans", err);
-             }
+            // Fetch Documents
+            try {
+                const { data: docsData, error: docsError } = await supabase
+                    .from('Add New Document')
+                    .select('*')
+                    .eq('is_deleted', false);
 
-             // Fetch Subscriptions
-             try {
-                 const subsData = await syncSubscriptions();
-                 setSubscriptions(subsData);
-             } catch (err) {
-                 console.error("Error fetching subs", err);
-             }
+                if (docsError) throw docsError;
+
+                const formattedDocs = (docsData || []).map((item) => ({
+                    id: item.id.toString(),
+                    sn: item.serial_no || '',
+                    date: item.created_at || item.timestamp || '',
+                    documentName: item.document_name || '',
+                    documentType: item.document_type || '',
+                    category: item.category || '',
+                    companyName: item.company_name || item.name || '',
+                    pName: item.name || '',
+                    needsRenewal: item.need_renewal || false,
+                    renewalDate: item.renewal_date || '',
+                    file: item.image || null,
+                    fileContent: item.image || undefined,
+                    status: 'Active',
+                    planned1: item.planned_date || '',
+                    actual1: item.actual_1 || '',
+                    issueDate: item.issue_date || '',
+                    concernPersonName: item.concern_person_name || '',
+                    concernPersonMobile: item.concern_person_mobile || '',
+                    concernPersonDepartment: item.concern_person_department || ''
+                }));
+                setDocuments(formattedDocs as any);
+            } catch (err) {
+                console.error("Error fetching docs", err);
+            }
+
+            // Fetch Loans
+            try {
+                const { data: loansData, error: loansError } = await supabase
+                    .from('loan')
+                    .select('*');
+
+                if (loansError) throw loansError;
+
+                const formattedLoans = (loansData || []).map((item) => ({
+                    id: item.id.toString(),
+                    sn: item.serial_no || '',
+                    loanName: item.loan_name || '',
+                    bankName: item.bank_name || '',
+                    amount: item.amount?.toString() || '',
+                    emi: item.emi?.toString() || '',
+                    startDate: item.loan_start_date || '',
+                    endDate: item.loan_end_date || '',
+                    planned1: item.planned_1 || '',
+                    actual1: item.actual_1 || '',
+                    planned2: item.planned_2 || '',
+                    actual2: item.actual_2 || '',
+                    collectNocStatus: item.collect_noc || '',
+                    file: item.file || null
+                }));
+                setLoans(formattedLoans as any);
+            } catch (err) {
+                console.error("Error fetching loans", err);
+            }
+
+            // Fetch Subscriptions
+            try {
+                const subsData = await syncSubscriptions();
+                setSubscriptions(subsData);
+            } catch (err) {
+                console.error("Error fetching subs", err);
+            }
         };
         loadData();
     }, [setTitle, setDocuments, setLoans, setSubscriptions]);
@@ -118,7 +166,7 @@ const Dashboard = () => {
     const getPendingApprovalStats = () => {
         const counts: Record<string, number> = {};
         subscriptions
-           .filter(sub => (sub.planned2 && sub.planned2.trim() !== '') && (!sub.actual2 || sub.actual2.trim() === ''))
+            .filter(sub => (sub.planned2 && sub.planned2.trim() !== '') && (!sub.actual2 || sub.actual2.trim() === ''))
             .forEach(sub => {
                 const key = sub.frequency || 'Unknown';
                 counts[key] = (counts[key] || 0) + 1;

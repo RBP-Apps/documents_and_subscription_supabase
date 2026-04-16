@@ -6,7 +6,8 @@ import useAuthStore from '../../store/authStore';
 import { CheckCircle, FileText, X, Save, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
-import { submitToGoogleSheets, updateGoogleSheetCellsBySn } from '../../utils/googleSheetsService';
+import supabase from '../../utils/supabase';
+import { syncSubscriptions } from '../../utils/subscriptionSync';
 
 const SubscriptionApproval = () => {
     const { subscriptions, updateSubscription, setSubscriptions } = useDataStore();
@@ -29,132 +30,11 @@ const SubscriptionApproval = () => {
     const refreshData = async () => {
         try {
             setIsLoading(true);
-
-            const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "";
-            if (!GOOGLE_SCRIPT_URL) return;
-
-            // Helper to normalize SN for matching (handles differences in leading zeros)
-            const normalizeSN = (sn: string) => {
-                if (!sn) return "";
-                const s = String(sn).trim().toUpperCase();
-                // Match "SUB-" followed by any number of zeros and then digits
-                const match = s.match(/^SUB-0*(\d+)$/);
-                if (match) return `SUB-${match[1]}`;
-                return s;
-            };
-
-            // 1. Fetch Base Subscriptions
-            const subUrl = new URL(GOOGLE_SCRIPT_URL);
-
-
-            subUrl.searchParams.set("sheet", "Subscription");
-            subUrl.searchParams.set("_t", Date.now().toString());
-
-            const subRes = await fetch(subUrl.toString());
-            const subJson = await subRes.json();
-
-            if (!subJson.success) throw new Error("Failed to fetch subscriptions");
-
-            // Transform base subscriptions (starting from Row 1)
-            const rawSubs = subJson.data;
-            const baseSubs: SubscriptionItem[] = rawSubs
-                .filter((row: any[]) => {
-                    const sn = String(row[1] || "").toLowerCase();
-                    const company = String(row[2] || "").toLowerCase();
-
-                    // Skip if:
-                    // 1. SN is missing
-                    // 2. Row is a Header (contains labels like "Subscription No" or "Company Name")
-                    // 3. Row is largely empty
-                    if (!row[1] || sn.includes('subscription') || sn.includes('serial') || company.includes('company')) {
-                        return false;
-                    }
-                    return row[2] || row[4]; // Must have company or service name
-                })
-                .map((row: any[], index: number) => {
-                    const sn = (row[1] || "").toString().trim();
-
-                    return {
-                        id: `sub-${sn}-${index}`,
-                        sn: sn,
-                        requestedDate: row[0] || "",
-                        companyName: row[2] || "N/A",
-                        subscriberName: row[3] || "N/A",
-                        subscriptionName: row[4] || "N/A",
-                        price: row[5] || "N/A",
-                        frequency: row[6] || "N/A",
-                        purpose: row[7] || "N/A",
-                        status: "Pending",
-                        actual2: (row[14] || "").toString().trim(), // Column O
-                        planned2: (row[13] || "").toString().trim(), // Column N
-                        startDate: "",
-                        endDate: ""
-                    };
-                });
-
-            // 2. Fetch Approval Logs
-
-            const appUrl = new URL(GOOGLE_SCRIPT_URL);
-
-
-            appUrl.searchParams.set("sheet", "Approval");
-            appUrl.searchParams.set("_t", Date.now().toString());
-
-            const appRes = await fetch(appUrl.toString());
-            const appJson = await appRes.json();
-
-            if (appJson.success && Array.isArray(appJson.data)) {
-                const approvalLogs = appJson.data.slice(1); // Skip header
-
-                // Merge approvals into base subscriptions
-                approvalLogs.forEach((log: any[]) => {
-                    const subNo = log[2]; // Subscription No (SN-xxx)
-                    const status = log[4]; // Approval Status
-                    const apNo = log[1];   // Approval No
-                    const note = log[5];   // Note
-                    const date = log[0];   // Timestamp
-
-                    const normalizedSubNo = normalizeSN(subNo);
-                    const subIndex = baseSubs.findIndex(s => normalizeSN(s.sn) === normalizedSubNo);
-
-                    if (subIndex !== -1) {
-                        baseSubs[subIndex] = {
-                            ...baseSubs[subIndex],
-                            status: status,
-                            approvalNo: apNo,
-                            remarks: note,
-                            approvalDate: date
-                        };
-                    } else {
-                        // If log exists but subscription is missing from base sheet, 
-                        // add it as a history-only item
-                        baseSubs.push({
-                            id: `sub-orphan-${subNo}`,
-                            sn: subNo,
-                            requestedDate: "",
-                            companyName: "N/A (Removed)",
-                            subscriberName: "N/A",
-                            subscriptionName: "N/A",
-                            price: "N/A",
-                            frequency: "N/A",
-                            purpose: "N/A",
-                            status: status,
-                            approvalNo: apNo,
-                            remarks: note,
-                            approvalDate: date,
-                            startDate: "",
-                            endDate: "",
-                            actual2: "Fetched", // Set this to ensure it passes History filter
-                            planned2: "Fetched" // Set this to ensure it passes History filter
-                        });
-                    }
-                });
-            }
-
-            setSubscriptions(baseSubs);
+            const data = await syncSubscriptions();
+            setSubscriptions(data);
         } catch (error) {
             console.error("Sync Error:", error);
-            toast.error("Failed to sync with Google Sheets");
+            toast.error("Failed to sync subscriptions");
         } finally {
             setIsLoading(false);
         }
@@ -195,38 +75,17 @@ const SubscriptionApproval = () => {
 
     const fetchNextApprovalSN = async () => {
         try {
+            const { data, error } = await supabase
+               .from('APPROVAL')
+               .select('id')
+               .order('id', { ascending: false })
+               .limit(1);
 
-            const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "";
-            if (!GOOGLE_SCRIPT_URL) return `AN-${Date.now().toString().slice(-6)}`;
-
-            const url = new URL(GOOGLE_SCRIPT_URL);
-
-
-            url.searchParams.set("sheet", "Approval");
-            url.searchParams.set("_t", new Date().getTime().toString());
-
-            const res = await fetch(url.toString(), {
-                method: "GET",
-                mode: "cors",
-            });
-
-            if (!res.ok) return `AN-${Date.now().toString().slice(-6)}`;
-            const json = await res.json();
-            if (!json || json.success !== true || !Array.isArray(json.data)) return `AN-${Date.now().toString().slice(-6)}`;
-
-            const rows = json.data;
-            const body = rows.length > 1 ? rows.slice(1) : [];
-
-            // Extract all numbers from existing data (Column B is index 1)
-            const existingNums = body
-                .map((row: any[]) => row[1] || '')
-                .map((val: any) => {
-                    const match = val.toString().match(/\d+/);
-                    return match ? parseInt(match[0]) : 0;
-                });
-
-            const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : 0;
-            return `AN-${String(maxNum + 1).padStart(3, '0')}`;
+            if (error || !data || data.length === 0) {
+               return `AN-001`;
+            }
+            const nextId = parseInt(data[0].id) + 1;
+            return `AN-${String(nextId).padStart(3, '0')}`;
         } catch (error) {
             console.error('Error fetching next Approval SN:', error);
             return `AN-${Date.now().toString().slice(-6)}`;
@@ -245,64 +104,51 @@ const SubscriptionApproval = () => {
             const newStatus = approvalStatus === 'Approve' ? 'Approved' : 'Rejected';
             const loginUsername = currentUser?.id || 'Admin';
 
-            // Generate Current Date in YYYY-MM-DD HH:mm:ss format (Adding seconds to help sheet parsing)
+            // Generate Current Date in YYYY-MM-DD HH:mm:ss format
             const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            const formattedCurrentDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            const formattedCurrentDate = now.toISOString().slice(0, 19).replace('T', ' ');
 
-            // Prepare data for Google Sheet as an ARRAY
-            // ( Timestamp, Approval No, Subscription No, Approved By, Approval Status, Note )
-            const rowData = [
-                String(formattedCurrentDate),      // A: Timestamp
-                String(apNo),           // B: Approval No (Unique Number)
-                String(selectedSub.sn),  // C: Subscription No (Serial No of Subscription)
-                String(loginUsername),   // D: Approved By
-                String(newStatus),      // E: Approval Status
-                String(remarks || "")   // F: Note
-            ];
+            // Prepare data for APPROVAL table
+            const approvalData = {
+                approval_no: apNo,
+                subscription_no: selectedSub.sn,
+                approved_by: loginUsername,
+                approval_status: newStatus,
+                note: remarks
+            };
 
-            console.log("Submitting rowData:", rowData);
+            const { error: insertError } = await supabase
+                .from('APPROVAL')
+                .insert([approvalData]);
 
-            // Submit to Google Sheets (Approval Log)
-            const result = await submitToGoogleSheets({
-                action: 'insert',
-                sheetName: 'Approval',
-                data: rowData
+            if (insertError) throw insertError;
+
+            // Update Local State IMMEDIATELY with actual2 to move it to History
+            updateSubscription(selectedSub.id, {
+                status: newStatus,
+                approvalNo: apNo,
+                remarks: remarks,
+                approvalDate: now.toISOString().split('T')[0],
+                actual2: formattedCurrentDate, // Setting this removes it from Pending filter logic
             });
 
-            if (result.success) {
-                // Update Local State IMMEDIATELY with actual2 to move it to History
-                updateSubscription(selectedSub.id, {
-                    status: newStatus,
-                    approvalNo: apNo,
-                    remarks: remarks,
-                    approvalDate: now.toISOString().split('T')[0],
-                    actual2: formattedCurrentDate, // Setting this removes it from Pending filter logic
-                });
-
-                // Update "Subscription" Sheet columns (Actual 2 and Approval Status)
-                try {
-                    const cellUpdates = [
-                        { column: 15, value: formattedCurrentDate }, // Column O: Actual 2
-                        { column: 17, value: newStatus }             // Column Q: Approval Status
-                    ];
-
-                    console.log("Updating strictly Columns 15 (Actual 2) and 17 (Status)...");
-                    await updateGoogleSheetCellsBySn('Subscription', selectedSub.sn, cellUpdates);
-                } catch (updateErr) {
-                    console.error('Failed to update Subscription sheet:', updateErr);
-                }
-
-                toast.success(`Subscription ${newStatus} with ${apNo}. Updated Actual 2 & Status.`);
-                handleCloseModal();
-            } else {
-                toast.error(result.error || 'Failed to save approval to Google Sheets');
+            // Update create_subscription table
+            try {
+                const { error: updateError } = await supabase
+                   .from('create_subscription')
+                   .update({
+                       actual_2: formattedCurrentDate,
+                       approval_status: newStatus
+                   })
+                   .eq('serial_no', selectedSub.sn);
+                   
+                if (updateError) throw updateError;
+            } catch (updateErr) {
+                console.error('Failed to update subscription table:', updateErr);
             }
+
+            toast.success(`Subscription ${newStatus} with ${apNo}.`);
+            handleCloseModal();
         } catch (error) {
             console.error('Error saving approval:', error);
             toast.error('Error saving approval. Please try again.');

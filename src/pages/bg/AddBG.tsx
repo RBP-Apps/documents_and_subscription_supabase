@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import useDataStore, { BGItem } from '../../store/dataStore';
 import { toast } from 'react-hot-toast';
 import { X, Save, Loader2, FileText, Calendar, Building, IndianRupee } from 'lucide-react';
-import { submitToGoogleSheets } from '../../utils/googleSheetsService';
+import supabase from '../../utils/supabase';
 
 interface AddBGProps {
   isOpen: boolean;
@@ -20,8 +20,8 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
     endDate: '',
     extendExpiryDate: '',
     remarks: '',
-    file: null as string | null,
-    fileContent: ''
+    fileName: null as string | null,
+    fileUpload: null as File | null,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,19 +32,15 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 50 * 1024 * 1024) {
-        toast.error("File size must be less than 50MB");
-        e.target.value = "";
+        toast.error('File size must be less than 50MB');
+        e.target.value = '';
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({
-          ...prev,
-          file: file.name,
-          fileContent: reader.result as string
-        }));
-      };
-      reader.readAsDataURL(file);
+      setFormData(prev => ({
+        ...prev,
+        fileName: file.name,
+        fileUpload: file,
+      }));
     }
   };
 
@@ -54,109 +50,96 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
     try {
       setIsSubmitting(true);
 
-      // 1. Handle File Upload if exists
-      let driveFileUrl = "";
-      if (formData.file && formData.fileContent) {
+      // 1. Upload file to Supabase Storage if present
+      let fileUrl = '';
+      if (formData.fileUpload) {
         try {
-          const uploadRes = await submitToGoogleSheets({
-            action: "uploadFile",
-            data: {
-              base64Data: formData.fileContent,
-              fileName: formData.file,
-              mimeType: "application/octet-stream",
-              folderId: import.meta.env.VITE_GOOGLE_BG_FOLDER_ID,
-            },
-          });
-          if (uploadRes?.success && uploadRes.fileUrl) {
-            driveFileUrl = uploadRes.fileUrl;
-          }
+          const cleanFileName = formData.fileUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+          const filePath = `bg/${Date.now()}_${cleanFileName}`;
+
+          const { data, error: uploadError } = await supabase.storage
+            .from('DRIVE_FOLDER')
+            .upload(filePath, formData.fileUpload, {
+              cacheControl: '3600',
+              upsert: false,
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('DRIVE_FOLDER')
+            .getPublicUrl(data.path);
+
+          fileUrl = publicUrl;
         } catch (uploadErr) {
-          console.error("File upload failed:", uploadErr);
-          toast.error("File upload failed, saving record without file.");
+          console.error('File upload failed:', uploadErr);
+          toast.error('File upload failed, saving record without file.');
         }
       }
 
-      const sn = ""; // Empty: Backend MUST generate this.
-      const now = new Date();
-      const timestamp = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}, ${now.toLocaleTimeString('en-GB', { hour12: false })}`;
+      // 2. Insert into Supabase BG table
+      const { data: inserted, error: insertError } = await supabase
+        .from('BG')
+        .insert([{
+          bg_name: formData.bgName,
+          bg_no: formData.bgNo,
+          bank_name: formData.bankName,
+          amount: formData.amount
+            ? parseFloat(formData.amount.replace(/[^0-9.]/g, ''))
+            : null,
+          bg_start_date: formData.startDate || null,
+          expiry_date: formData.endDate || null,
+          claim_expiry_date: formData.extendExpiryDate || null,
+          remarks: formData.remarks || null,
+          file: fileUrl || null,
+        }])
+        .select('id')
+        .single();
 
-      // 2. Prepare Row Data for 'BG' sheet
-      // A: Timestamp | B: Serial No | C: BG Name | D: BG No | E: Bank Name | F: Amount | G: Start Date | H: End Date | I: Extend Expiry | J: Remarks | K: File URL
-      const rowData = [
-        timestamp,              // A
-        sn,                      // B
-        formData.bgName,         // C
-        formData.bgNo,           // D
-        formData.bankName,       // E
-        formData.amount,         // F
-        formData.startDate,      // G
-        formData.endDate,        // H
-        formData.extendExpiryDate, // I
-        formData.remarks,        // J
-        driveFileUrl || "No File" // K
-      ];
+      if (insertError) throw insertError;
 
-      const result = await submitToGoogleSheets({
-        action: 'insert',
-        sheetName: 'BG',
-        data: rowData
+      // 3. Generate and update serial_no
+      const generatedSN = `BG-${inserted.id}`;
+      await supabase
+        .from('BG')
+        .update({ serial_no: generatedSN })
+        .eq('id', inserted.id);
+
+      // 4. Update local store
+      const newItem: BGItem = {
+        id: inserted.id.toString(),
+        sn: generatedSN,
+        Timestamp: new Date().toISOString(),
+        bgName: formData.bgName,
+        bgNo: formData.bgNo,
+        bankName: formData.bankName,
+        amount: formData.amount,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        extendExpiryDate: formData.extendExpiryDate,
+        remarks: formData.remarks,
+        file: fileUrl || formData.fileName,
+        fileContent: fileUrl || undefined,
+      };
+      addBG(newItem);
+
+      toast.success(`BG added successfully! Serial No: ${generatedSN}`);
+      onClose();
+      setFormData({
+        bgName: '',
+        bgNo: '',
+        bankName: '',
+        amount: '',
+        startDate: '',
+        endDate: '',
+        extendExpiryDate: '',
+        remarks: '',
+        fileName: null,
+        fileUpload: null,
       });
-
-      if (result.success) {
-        // Check for backend version
-        if (!result._version) {
-          toast.error(
-            <div>
-              <b>DEPLOYMENT UPDATE REQUIRED</b>
-              <br />
-              Google Apps Script is outdated.
-              <br />
-              Please go to Apps Script {"->"} Deploy {"->"} New Version.
-            </div>,
-            { duration: 6000 }
-          );
-        }
-
-        const serverSN = result.serialNo;
-
-        const newItem: BGItem = {
-          id: Math.random().toString(36).substr(2, 9),
-          sn: serverSN || "Processing...",
-          Timestamp: timestamp,
-          ...formData,
-          fileContent: driveFileUrl || undefined,
-          file: driveFileUrl || formData.file
-        };
-        addBG(newItem);
-
-        if (serverSN) {
-          toast.success(`BG added successfully! Serial No: ${serverSN}`);
-        } else {
-          if (!result._version) {
-            toast("Entry saved without Serial No (Old Script Version)", { icon: '⚠️' });
-          } else {
-            toast.success('BG saved! Refreshing sheet to see Serial No...');
-          }
-        }
-        onClose();
-        setFormData({
-          bgName: '',
-          bgNo: '',
-          bankName: '',
-          amount: '',
-          startDate: '',
-          endDate: '',
-          extendExpiryDate: '',
-          remarks: '',
-          file: null,
-          fileContent: ''
-        });
-      } else {
-        toast.error("Failed to save to Google Sheets");
-      }
     } catch (error) {
-      console.error("BG Submission Error:", error);
-      toast.error("Error saving BG details");
+      console.error('BG Submission Error:', error);
+      toast.error('Error saving BG details');
     } finally {
       setIsSubmitting(false);
     }
@@ -188,9 +171,12 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
         {/* Modal Body */}
         <div className="p-6 md:p-8 max-h-[70vh] overflow-y-auto">
           <form id="add-bg-form" onSubmit={handleSubmit} className="space-y-5">
+
             {/* Section 1: Basic Info */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b border-gray-100 pb-2">Basic Information</h3>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b border-gray-100 pb-2">
+                Basic Information
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -267,7 +253,9 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
 
             {/* Section 2: Date Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b border-gray-100 pb-2">Date Details</h3>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b border-gray-100 pb-2">
+                Date Details
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -289,7 +277,7 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-indigo-600" />
-                      Expiry date <span className="text-red-500">*</span>
+                      Expiry Date <span className="text-red-500">*</span>
                     </div>
                   </label>
                   <input
@@ -307,7 +295,8 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   <div className="flex items-center gap-2">
                     <Calendar size={14} className="text-indigo-600" />
-                    Claim expiry date <span className="text-gray-400 text-xs">(Optional)</span>
+                    Claim Expiry Date{' '}
+                    <span className="text-gray-400 text-xs">(Optional)</span>
                   </div>
                 </label>
                 <input
@@ -322,9 +311,13 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
 
             {/* Section 3: Additional Info */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b border-gray-100 pb-2">Additional Information</h3>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b border-gray-100 pb-2">
+                Additional Information
+              </h3>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Remarks <span className="text-gray-400 text-xs">(Optional)</span></label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Remarks <span className="text-gray-400 text-xs">(Optional)</span>
+                </label>
                 <input
                   type="text"
                   className="w-full p-2.5 shadow-input border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-gray-50/50"
@@ -339,7 +332,8 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   <div className="flex items-center gap-2">
                     <FileText size={14} className="text-indigo-600" />
-                    Upload Document <span className="text-gray-400 text-xs">(Optional, Max 50MB)</span>
+                    Upload Document{' '}
+                    <span className="text-gray-400 text-xs">(Optional, Max 50MB)</span>
                   </div>
                 </label>
                 <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 hover:border-indigo-400 transition-colors bg-gray-50/50">
@@ -350,10 +344,10 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
                     disabled={isSubmitting}
                     accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
                   />
-                  {formData.file && (
+                  {formData.fileName && (
                     <div className="mt-2 flex items-center gap-2 text-sm text-green-600 bg-green-50 p-2 rounded-lg">
                       <FileText size={14} />
-                      <span className="font-medium">Selected: {formData.file}</span>
+                      <span className="font-medium">Selected: {formData.fileName}</span>
                     </div>
                   )}
                 </div>

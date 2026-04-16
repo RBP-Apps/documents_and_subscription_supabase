@@ -4,7 +4,7 @@ import useHeaderStore from '../../store/headerStore';
 import { CreditCard, FileText, X, Save, Upload, Download, Search, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
-import { submitToGoogleSheets, updateGoogleSheetCellsBySn } from '../../utils/googleSheetsService';
+import supabase from '../../utils/supabase';
 import { syncSubscriptions } from '../../utils/subscriptionSync';
 
 const SubscriptionPayment = () => {
@@ -46,6 +46,7 @@ const SubscriptionPayment = () => {
     const [transactionId, setTransactionId] = useState('');
     const [fileName, setFileName] = useState('');
     const [fileContent, setFileContent] = useState<string>('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [updatedPrice, setUpdatedPrice] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -135,6 +136,7 @@ const SubscriptionPayment = () => {
                 return;
             }
             setFileName(file.name);
+            setSelectedFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setFileContent(reader.result as string);
@@ -164,91 +166,91 @@ const SubscriptionPayment = () => {
             const formattedCurrentDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
             let driveFileUrl = "";
-            // 1. Upload File to Drive if present
-            if (fileContent && fileName) {
+            // 1. Upload File to Supabase Storage if present
+            if (selectedFile) {
                 try {
-                    const uploadRes = await submitToGoogleSheets({
-                        action: "uploadFile",
-                        sheetName: "Subscription Payment",
-                        data: {
-                            base64Data: fileContent,
-                            fileName: fileName,
-                            mimeType: "application/octet-stream",
-                            folderId: import.meta.env.VITE_GOOGLE_SUBSCRIPTION_FOLDER_ID,
-                        },
-                    });
-                    if (uploadRes?.success && uploadRes.fileUrl) {
-                        driveFileUrl = uploadRes.fileUrl;
-                    }
+                    const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+                    const filePath = `payment_${Date.now()}_${cleanFileName}`;
+
+                    const { data, error: uploadError } = await supabase.storage
+                        .from("DRIVE_FOLDER")
+                        .upload(filePath, selectedFile, {
+                            cacheControl: "3600",
+                            upsert: false,
+                        });
+
+                    if (uploadError) throw uploadError;
+
+                    const { data: { publicUrl } } = supabase.storage
+                        .from("DRIVE_FOLDER")
+                        .getPublicUrl(data.path);
+                    
+                    driveFileUrl = publicUrl;
                 } catch (uploadErr) {
                     console.error("File upload failed:", uploadErr);
                     toast.error("File upload failed, saving record without file.");
                 }
             }
 
-            // Format for 'Payment' sheet based on user image:
-            // A: Timestamp | B: Subscription No | C: Payment Mode | D: Transaction ID | E: Start Date | F: Insurance Document | G: End Date
-            const rowData = [
-                formattedCurrentDate,       // A: Timestamp
-                selectedSub.sn,             // B: Subscription No
-                paymentMethod,              // C: Payment Mode
-                transactionId || "",        // D: Transaction ID
-                startDate,                  // E: Start Date
-                driveFileUrl || "No File",  // F: Insurance Document
-                endDate,                    // G: End Date
-                updatedPrice || "",         // H: Updated Price
-                selectedSub.price || ""     // I: Old Price
-            ];
+            // Prepare for 'PAYMENT' table
+            const paymentData = {
+                subscription_no: selectedSub.sn,
+                payment_mode: paymentMethod,
+                transaction_id: transactionId || null,
+                start_date: startDate || null,
+                end_date: endDate || null,
+                insurance_document: driveFileUrl || null,
+                updated_price: updatedPrice ? parseFloat(updatedPrice) : null,
+                old_price: selectedSub.price ? parseFloat(String(selectedSub.price).replace(/[^0-9.]/g, '')) : null
+            };
 
-            const result = await submitToGoogleSheets({
-                action: 'insert',
-                sheetName: 'PAYMENT',
-                data: rowData
+            const { error: insertError } = await supabase
+                .from('PAYMENT')
+                .insert([paymentData]);
+
+            if (insertError) throw insertError;
+
+            // Update Local State IMMEDIATELY
+            updateSubscription(selectedSub.id, {
+                status: 'Paid',
+                startDate: startDate,
+                endDate: endDate,
+                paymentMethod: paymentMethod,
+                transactionId: transactionId,
+                paymentFile: fileName,
+                paymentFileContent: driveFileUrl || undefined,
+                paymentDate: now.toISOString().split('T')[0],
+                actual3: formattedCurrentDate, // Set Actual 3 to move to History
+                updatedPrice: updatedPrice,
+                price: updatedPrice || selectedSub.price // Update local price if changed
             });
 
-            if (result.success) {
-                // Update Local State IMMEDIATELY
-                updateSubscription(selectedSub.id, {
-                    status: 'Paid',
-                    startDate: startDate,
-                    endDate: endDate,
-                    paymentMethod: paymentMethod,
-                    transactionId: transactionId,
-                    paymentFile: fileName,
-                    paymentFileContent: driveFileUrl || undefined,
-                    paymentDate: now.toISOString().split('T')[0],
-                    actual3: formattedCurrentDate, // Set Actual 3 to move to History
-                    updatedPrice: updatedPrice,
-                    price: updatedPrice || selectedSub.price // Update local price if changed
-                });
+            // Update create_subscription table
+            try {
+                const updateData: any = {
+                    actual_3: formattedCurrentDate,
+                    start_date: startDate,
+                    end_date: endDate,
+                    document_copy: driveFileUrl || null
+                };
 
-                // Update "Subscription" Sheet columns
-                try {
-                    const cellUpdates = [
-                        { column: 19, value: formattedCurrentDate }, // Column S: Actual 3
-                        { column: 21, value: startDate },            // Column U: Start Date
-                        { column: 22, value: endDate },              // Column V: End Date
-                        { column: 23, value: driveFileUrl || "" },   // Column W: Document Copy
-                        { column: 24, value: updatedPrice || "" }    // Column X: Updated Price
-                    ];
-
-                    // User Request: Update Column F (Price - Index 6) if updated price is provided
-                    if (updatedPrice) {
-                        cellUpdates.push({ column: 6, value: updatedPrice });
-                    }
-
-                    console.log("Updating Subscription sheet Columns 19, 21, 22, 23...");
-                    await updateGoogleSheetCellsBySn('Subscription', selectedSub.sn, cellUpdates);
-                } catch (updateErr) {
-                    console.error('Failed to update Subscription sheet:', updateErr);
+                if (updatedPrice) {
+                    updateData.price = parseFloat(updatedPrice);
                 }
 
-                toast.success("Payment recorded and saved to Google Sheets");
-                handleCloseModal();
-                refreshData();
-            } else {
-                toast.error("Failed to save to Google Sheets");
+                const { error: updateError } = await supabase
+                    .from('create_subscription')
+                    .update(updateData)
+                    .eq('serial_no', selectedSub.sn);
+
+                if (updateError) throw updateError;
+            } catch (updateErr) {
+                console.error('Failed to update create_subscription table:', updateErr);
             }
+
+            toast.success("Payment recorded and saved to Supabase");
+            handleCloseModal();
+            refreshData();
         } catch (error) {
             console.error("Payment Error:", error);
             toast.error("Error saving payment");

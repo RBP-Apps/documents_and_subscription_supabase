@@ -8,8 +8,10 @@ import {
   Loader,
   RefreshCw,
 } from "lucide-react";
-import useHeaderStore from "../../store/headerStore";
 import { formatDate } from "../../utils/dateFormatter";
+import supabase from "../../utils/supabase";
+import  useHeaderStore  from "../../store/headerStore";
+
 
 interface ShareHistoryItem {
   id: string;
@@ -42,90 +44,53 @@ const SharedDocuments = () => {
 
   useEffect(() => {
     setTitle("Share History");
-    fetchShareHistoryFromGoogleSheets();
+    fetchShareHistoryFromSupabase();
   }, [setTitle]);
 
-  const fetchShareHistoryFromGoogleSheets = async () => {
+  const fetchShareHistoryFromSupabase = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      if (!GOOGLE_SCRIPT_URL) {
-        throw new Error("Google Script URL is not defined");
+      const { data, error: supabaseError } = await supabase
+        .from('Shared_Documents')
+        .select('*')
+        .order('id', { ascending: false });
+
+      if (supabaseError) {
+        throw supabaseError;
       }
 
-      const url = new URL(GOOGLE_SCRIPT_URL);
+      // Transform Supabase data
+      const transformedData = (data || []).map((row: any, index: number) => {
+        // Generate share number
+        const shareNo = `SH-${String(data.length - index).padStart(3, "0")}`;
 
-      url.searchParams.set("sheet", "Shared Documents");
-      url.searchParams.set("_t", new Date().getTime().toString());
-
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        mode: "cors",
-      });
-
-      if (!res.ok) {
-        throw new Error(
-          `Failed to fetch share history: ${res.status} ${res.statusText}`,
-        );
-      }
-
-      const json = await res.json();
-
-      if (!json || json.success !== true || !Array.isArray(json.data)) {
-        throw new Error(
-          json?.error ||
-            "Invalid response while fetching Shared Documents sheet",
-        );
-      }
-
-      const rows = json.data;
-      const body = rows.length > 0 ? rows.slice(1) : rows;
-
-      // Transform Google Sheets data
-      const transformedData = body.map((row: any[], index: number) => {
-        // Handle different possible column indices
-        const timestamp = row[0] || "";
-        const email = row[1] || "";
-        const name = row[2] || "";
-        const documentName = row[3] || "";
-        const documentType = row[4] || "";
-        const category = row[5] || "";
-        const serialNo = row[6] || "";
-        const image = row[7] || "";
-        const sourceSheet = row[8] || "Shared Documents";
-        const shareMethod = row[9] || "";
-        const number = row[10] || "";
-
-        // Determine contact info based on share method
         let contactInfo = "";
-        if (shareMethod === "Email" || shareMethod === "Both") {
-          contactInfo = email;
-        } else if (shareMethod === "WhatsApp") {
-          contactInfo = number;
+        if (row.share_method === "Email" || row.share_method === "Both") {
+          contactInfo = row.email || "";
+        } else if (row.share_method === "WhatsApp") {
+          contactInfo = row.number || "";
         }
 
-        // Generate share number
-        const shareNo = `SH-${String(index + 1).padStart(3, "0")}`;
-
         return {
-          id: `share-${Date.now()}-${index}`,
+          id: row.id.toString(),
           shareNo,
-          dateTime: timestamp || new Date().toISOString(),
-          docSerial: serialNo || "N/A",
-          docName: documentName || "N/A",
-          docFile: image || "N/A",
-          sharedVia: shareMethod || "N/A",
-          recipientName: name || "N/A",
+          dateTime: row.timestamp || row.created_at || new Date().toISOString(),
+          docSerial: row.serial_no || "N/A",
+          docName: row.document_name || "N/A",
+          docFile: row.image || "N/A",
+          sharedVia: row.share_method || "N/A",
+          recipientName: row.name || "N/A",
           contactInfo: contactInfo || "N/A",
-          email,
-          documentType,
-          category,
-          serialNo,
-          image,
-          sourceSheet,
-          shareMethod,
-          number,
+          email: row.email || "",
+          documentType: row.document_type || "",
+          category: row.category || "",
+          serialNo: row.serial_no || "",
+          image: row.image || "",
+          sourceSheet: row.source_sheet || "Shared Documents",
+          shareMethod: row.share_method || "",
+          number: row.number || "",
         };
       });
 
@@ -152,7 +117,7 @@ const SharedDocuments = () => {
   );
 
   const handleRefresh = () => {
-    fetchShareHistoryFromGoogleSheets();
+    fetchShareHistoryFromSupabase();
   };
 
   const handleDownload = (fileUrl: string) => {
@@ -167,7 +132,7 @@ const SharedDocuments = () => {
         <div className="flex flex-col items-center gap-4">
           <Loader className="h-8 w-8 text-indigo-600 animate-spin" />
           <p className="text-gray-600">
-            Loading share history from Google Sheets...
+            Loading share history...
           </p>
         </div>
       </div>
@@ -201,7 +166,7 @@ const SharedDocuments = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Share History</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Track all shared documents from Google Sheets
+            Track all shared documents
           </p>
           {shareHistory.length > 0 && (
             <p className="text-xs text-gray-400 mt-1">
@@ -379,9 +344,9 @@ const SharedDocuments = () => {
         ) : filteredData.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <FileText className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-            <p>No share history found in Google Sheets</p>
+            <p>No share history found</p>
             <p className="text-sm text-gray-400 mt-1">
-              The "Shared Documents" sheet might be empty
+              There are no records in the Shared Documents table yet.
             </p>
           </div>
         ) : null}
@@ -509,7 +474,7 @@ const SharedDocuments = () => {
             <FileText className="mx-auto h-12 w-12 text-gray-300 mb-3" />
             <p>No records found</p>
             <p className="text-sm text-gray-400 mt-1">
-              Data source: Google Sheets - "Shared Documents" sheet
+              Data source: Supabase "Shared Documents" table
             </p>
           </div>
         ) : null}

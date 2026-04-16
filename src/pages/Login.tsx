@@ -10,6 +10,7 @@ const Login = () => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const login = useAuthStore((state) => state.login);
 
 
   const setAuthenticatedUser = useAuthStore(
@@ -17,81 +18,34 @@ const Login = () => {
   );
   const navigate = useNavigate();
 
+
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!username || !password) {
-      toast.error("Please enter both username and password");
-      return;
+  if (!username || !password) {
+    toast.error("Please enter both username and password");
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+
+    const success = await login(username, password);
+
+    if (success) {
+      toast.success(`Welcome back, ${username}!`);
+      navigate("/", { replace: true });
+    } else {
+      toast.error("Invalid username or password");
     }
 
-
-    try {
-      setIsLoading(true);
-      const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "";
-      if (!GOOGLE_SCRIPT_URL) {
-        toast.error("Google Script URL is missing");
-        return;
-      }
-
-      const url = new URL(GOOGLE_SCRIPT_URL);
-      url.searchParams.set("sheet", "Pass");
-      url.searchParams.set("_t", Date.now().toString());
-
-      const response = await fetch(url.toString());
-      const json = await response.json();
-
-      if (!json.success || !Array.isArray(json.data)) {
-        throw new Error("Failed to fetch login data");
-      }
-
-      const rows: any[][] = json.data.slice(1); // Skip header [Name, username, Password, Role]
-      const foundRow = rows.find(row =>
-        String(row[1] || "").trim() === username.trim() &&
-        String(row[2] || "").trim() === password.trim()
-      );
-
-      if (foundRow) {
-        // Check for Deleted status in Column F (index 5)
-        const deletionStatus = (foundRow[5] || "").toString().trim();
-        if (deletionStatus === 'Deleted') {
-          toast.error("User Does not exist");
-          return;
-        }
-
-        const role = (foundRow[3] || "user").toLowerCase() as 'admin' | 'user';
-
-        let permissions: string[] = [];
-
-        if (role === 'admin') {
-          permissions = ['Dashboard', 'Document', 'Subscription', 'Loan', 'Calendar', 'Master', 'Settings'];
-        } else {
-          // Parse permissions from Column E (index 4) for users
-          const rawPermissions = (foundRow[4] || "").toString();
-          permissions = rawPermissions.split(',').map((p: string) => p.trim()).filter((p: string) => p.length > 0);
-        }
-
-        setAuthenticatedUser({
-          id: foundRow[1], // username
-          name: (foundRow[0] || "").toString().trim(), // Name from Column A
-          role: role,
-          permissions: permissions
-        });
-
-        toast.success(`Welcome back, ${foundRow[0] || foundRow[1]}!`);
-        navigate("/", { replace: true });
-      } else {
-        toast.error("Invalid username or password");
-      }
-    } catch (error) {
-      console.error("Login Error:", error);
-      toast.error(
-        `Login failed: ${error instanceof Error ? error.message : "Unknown error"}. Make sure your Google Script is deployed correctly.`
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error("Login Error:", error);
+    toast.error("Login failed");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="h-screen bg-gradient-to-br from-indigo-50 to-indigo-50 flex items-center justify-center p-4">

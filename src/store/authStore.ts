@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import supabase from './../utils/supabase';
 
 export interface User {
   id: string; // username
@@ -24,20 +25,6 @@ interface AuthState {
   setUsers: (users: User[]) => void;
 }
 
-// const DEFAULT_USERS: User[] = [
-//   {
-//     id: 'admin',
-//     password: 'admin123',
-//     role: 'admin',
-//     permissions: ['Dashboard', 'Document', 'Subscription', 'Loan', 'Calendar', 'Master', 'Settings']
-//   },
-//   {
-//     id: 'user',
-//     password: 'user123',
-//     role: 'user',
-//     permissions: ['Dashboard', 'Document', 'Calendar']
-//   }
-// ];
 
 const useAuthStore = create<AuthState>()(
   persist(
@@ -46,19 +33,53 @@ const useAuthStore = create<AuthState>()(
       currentUser: null,
       users: [],
 
-      login: (username: string, password: string) => {
-        const { users } = get();
-        const foundUser = users.find(u => u.id === username && u.password === password);
+      login: async (username: string, password: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('login')
+      .select('*')
+      .eq('username', username)
+      .eq('password', password)
+      .single();
 
-        if (foundUser) {
-          if (foundUser.deleted === 'Deleted') {
-            return false;
-          }
-          set({ isAuthenticated: true, currentUser: foundUser });
-          return true;
-        }
-        return false;
-      },
+    if (error || !data) {
+      return false;
+    }
+
+    // Deleted check
+    if (data.deleted === true) {
+      return false;
+    }
+
+    const role = (data.role || 'user').toLowerCase() as 'admin' | 'user';
+
+    let permissions: string[] = [];
+
+    if (role === 'admin') {
+      permissions = ['Dashboard', 'Document', 'Subscription', 'Loan', 'Calendar', 'Master', 'Settings'];
+    } else {
+      const rawPermissions = (data.pages || "").toString();
+      permissions = rawPermissions
+        .split(',')
+        .map((p: string) => p.trim())
+        .filter((p: string) => p.length > 0);
+    }
+
+    const user: User = {
+      id: data.username,
+      name: data.name,
+      role,
+      permissions,
+    };
+
+    set({ isAuthenticated: true, currentUser: user });
+
+    return true;
+  } catch (err) {
+    console.error("Login error:", err);
+    return false;
+  }
+},
 
       logout: () => {
         set({ isAuthenticated: false, currentUser: null });

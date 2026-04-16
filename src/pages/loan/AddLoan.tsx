@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import useDataStore, { LoanItem } from '../../store/dataStore';
 import { toast } from 'react-hot-toast';
 import { X, Save, Loader2 } from 'lucide-react';
-import { submitToGoogleSheets } from '../../utils/googleSheetsService';
+import supabase from '../../utils/supabase';
 
 interface AddLoanProps {
   isOpen: boolean;
@@ -21,7 +21,8 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
     providedDocument: '',
     remarks: '',
     file: null as string | null,
-    fileContent: ''
+    fileContent: '',
+    fileUpload: null as File | null
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,7 +42,8 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
         setFormData(prev => ({
           ...prev,
           file: file.name,
-          fileContent: reader.result as string
+          fileContent: reader.result as string,
+          fileUpload: file
         }));
       };
       reader.readAsDataURL(file);
@@ -54,112 +56,98 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
     try {
       setIsSubmitting(true);
 
-      // 1. Handle File Upload if exists
       let driveFileUrl = "";
-      if (formData.file && formData.fileContent) {
+      if (formData.fileUpload) {
         try {
-          const uploadRes = await submitToGoogleSheets({
-            action: "uploadFile",
-            data: {
-              base64Data: formData.fileContent,
-              fileName: formData.file,
-              mimeType: "application/octet-stream",
-              folderId: import.meta.env.VITE_GOOGLE_LOAN_FOLDER_ID || "12zBHFw6truibhysD3UK1lBKbSHN0026z",
-            },
-          });
-          if (uploadRes?.success && uploadRes.fileUrl) {
-            driveFileUrl = uploadRes.fileUrl;
-          }
+          const fileExt = formData.fileUpload.name.split('.').pop();
+          const fileName = `${Math.random()}.${fileExt}`;
+          const filePath = `loans/${fileName}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('DRIVE_FOLDER')
+            .upload(filePath, formData.fileUpload);
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('DRIVE_FOLDER')
+            .getPublicUrl(filePath);
+
+          driveFileUrl = publicUrl;
         } catch (uploadErr) {
           console.error("File upload failed:", uploadErr);
           toast.error("File upload failed, saving record without file.");
         }
       }
 
-      // 2. Auto-generate SN-xxx (Backend handled now)
-      // const maxSn = loans.reduce((max, loan) => { ... })
+      // Generate a SN
+      // Retrieve the current max serial_no to increment
+      const { data: latestLoan } = await supabase
+        .from('loan')
+        .select('serial_no')
+        .order('id', { ascending: false })
+        .limit(1);
+        
+      let nextSn = "SN-001";
+      if (latestLoan && latestLoan.length > 0 && latestLoan[0].serial_no) {
+        const lastSnMatch = latestLoan[0].serial_no.match(/SN-(\d+)/);
+        if (lastSnMatch && lastSnMatch[1]) {
+          const nextNum = parseInt(lastSnMatch[1], 10) + 1;
+          nextSn = `SN-${String(nextNum).padStart(3, '0')}`;
+        }
+      }
 
-      const sn = ""; // Empty: Backend MUST generate this. 
+      const rowData = {
+        serial_no: nextSn,
+        loan_name: formData.loanName,
+        bank_name: formData.bankName,
+        amount: formData.amount ? parseFloat(formData.amount.toString().replace(/,/g, '').replace('₹', '').trim()) : 0,
+        emi: formData.emi ? parseFloat(formData.emi.toString().replace(/,/g, '').replace('₹', '').trim()) : 0,
+        loan_start_date: formData.startDate || null,
+        loan_end_date: formData.endDate || null,
+        provided_document_name: formData.providedDocument,
+        file: driveFileUrl || null,
+        remarks: formData.remarks
+      };
+
+      const { data: insertData, error: insertError } = await supabase
+        .from('loan')
+        .insert([rowData])
+        .select();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      const serverSN = nextSn;
       const now = new Date();
       const timestamp = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}, ${now.toLocaleTimeString('en-GB', { hour12: false })}`;
 
-      // 3. Prepare Row Data for 'Loan' sheet
-      // A: Timestamp | B: Serial No. | C: Loan Name | D: Bank Name | E: Amount | F: EMI | G: Start Date | H: End Date | I: Provided Doc | J: File | K: Remarks
-      const rowData = [
-        timestamp,              // A
-        sn,                      // B
-        formData.loanName,       // C
-        formData.bankName,       // D
-        formData.amount,         // E
-        formData.emi,            // F
-        formData.startDate,      // G
-        formData.endDate,        // H
-        formData.providedDocument, // I
-        driveFileUrl || "No File", // J
-        formData.remarks          // K
-      ];
+      const newItem: LoanItem = {
+        id: insertData?.[0]?.id?.toString() || Math.random().toString(36).substr(2, 9),
+        sn: serverSN,
+        Timestamp: timestamp,
+        ...formData,
+        fileContent: driveFileUrl || undefined,
+        file: driveFileUrl || formData.file
+      };
+      addLoan(newItem);
 
-      const result = await submitToGoogleSheets({
-        action: 'insert',
-        sheetName: 'Loan',
-        data: rowData
+      toast.success(`Loan added successfully! Serial No: ${serverSN}`);
+      onClose();
+      setFormData({
+        loanName: '',
+        bankName: '',
+        amount: '',
+        emi: '',
+        startDate: '',
+        endDate: '',
+        providedDocument: '',
+        remarks: '',
+        file: null,
+        fileContent: '',
+        fileUpload: null
       });
-
-      if (result.success) {
-        // CHECK FOR BACKEND VERSION
-        // If the response doesn't have the _version property (added in v3.0.0), the deployment is old.
-        if (!result._version) {
-          toast.error(
-            <div>
-              <b>DEPLOYMENT UPDATE REQUIRED</b>
-              <br />
-              Refused to save proper Serial No because Google Apps Script is outdated.
-              <br />
-              Please go to Apps Script {">"} Deploy {">"} New Version.
-            </div>,
-            { duration: 6000 }
-          );
-          // Still clear form locally but warn user
-        }
-
-        const serverSN = result.serialNo;
-
-        const newItem: LoanItem = {
-          id: Math.random().toString(36).substr(2, 9),
-          sn: serverSN || "Processing...", // Ui placeholder
-          Timestamp: timestamp,
-          ...formData,
-          fileContent: driveFileUrl || undefined, // Avoid storing Base64 in localStorage
-          file: driveFileUrl || formData.file // Prefer Drive URL
-        };
-        addLoan(newItem);
-
-        if (serverSN) {
-          toast.success(`Loan added successfully! Serial No: ${serverSN}`);
-        } else {
-          // If version check failed earlier, this logic naturally follows context
-          if (!result._version) {
-            toast("Entry saved without Serial No (Old Script Version)", { icon: '⚠️' });
-          } else {
-            toast.success('Loan saved! Refreshing sheet to see Serial No...');
-          }
-        }
-        onClose();
-        setFormData({
-          loanName: '',
-          bankName: '',
-          amount: '',
-          emi: '',
-          startDate: '',
-          endDate: '',
-          providedDocument: '',
-          remarks: '',
-          file: null,
-          fileContent: ''
-        });
-      } else {
-        toast.error("Failed to save to Google Sheets");
-      }
     } catch (error) {
       console.error("Loan Submission Error:", error);
       toast.error("Error saving loan details");

@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Building, FileText } from 'lucide-react';
 import useDataStore from '../../store/dataStore';
 import useHeaderStore from '../../store/headerStore';
-import { fetchLoansFromGoogleSheets } from '../../utils/googleSheetsService';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
+import supabase from '../../utils/supabase';
 import AddLoan from './AddLoan';
 
 const AllLoans = () => {
@@ -31,11 +31,46 @@ const AllLoans = () => {
     const loadLoans = async () => {
         try {
             setIsLoading(true);
-            const fetchedLoans = await fetchLoansFromGoogleSheets();
-            setLoans(fetchedLoans);
+            const { data, error } = await supabase
+                .from('loan')
+                .select('*')
+                .order('id', { ascending: false });
+
+            if (error) {
+                throw error;
+            }
+
+            const formattedLoans = (data || []).map((item) => ({
+                id: item.id.toString(),
+                Timestamp: item.timestamp || item.created_at || new Date().toISOString(),
+                sn: item.serial_no || '',
+                loanName: item.loan_name || '',
+                bankName: item.bank_name || '',
+                amount: item.amount?.toString() || '',
+                emi: item.emi?.toString() || '',
+                startDate: item.loan_start_date || '',
+                endDate: item.loan_end_date || '',
+                providedDocument: item.provided_document_name || '',
+                remarks: item.remarks || '',
+                file: item.file || null,
+                fileContent: item.file || undefined,
+                requestDate: item.request_date || '',
+                requesterName: item.request_name || '',
+                planned1: item.planned_1 || '',
+                actual1: item.actual_1 || '',
+                delay1: item.delay_1?.toString() || '',
+                planned2: item.planned_2 || '',
+                actual2: item.actual_2 || '',
+                delay2: item.delay_2?.toString() || '',
+                collectNocStatus: item.collect_noc || '',
+                rowIndex: item.id,
+                date: item.created_at || ''
+            }));
+
+            setLoans(formattedLoans as any);
         } catch (error) {
             console.error('Error loading loans:', error);
-            toast.error('Failed to load loans from Google Sheets');
+            toast.error('Failed to load loans from Supabase');
         } finally {
             setIsLoading(false);
         }

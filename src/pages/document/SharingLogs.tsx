@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Download, Search, RefreshCw, FileText } from "lucide-react";
 import { toast } from "react-hot-toast";
+import supabase from "../../utils/supabase";
 
 interface SharingLog {
   timestamp: string;
@@ -29,44 +30,31 @@ const SharingLogs = () => {
   const fetchSharingLogs = async () => {
     try {
       setLoading(true);
-      // This would fetch from your API or directly from Google Sheets
-      // For now, we'll use a mock implementation
+      const { data, error } = await supabase
+        .from('Shared_Documents')
+        .select('*')
+        .order('id', { ascending: false });
+        
+      if (error) throw error;
 
-      // In a real implementation, you would fetch from your API
-      // const response = await fetch('/api/sharing-logs');
-      // const data = await response.json();
+      // Transform Supabase data
+      const transformedLogs = (data || []).map((row: any) => {
+        return {
+          timestamp: row.timestamp || row.created_at || new Date().toISOString(),
+          email: row.email || "",
+          name: row.name || "N/A",
+          documentName: row.document_name || "N/A",
+          documentType: row.document_type || "",
+          category: row.category || "",
+          serialNo: row.serial_no || "",
+          image: row.image || "",
+          sourceSheet: row.source_sheet || "Documents",
+          shareMethod: row.share_method || "",
+          number: row.number || "",
+        };
+      });
 
-      // Mock data for demonstration
-      const mockLogs: SharingLog[] = [
-        {
-          timestamp: "2024-01-15 14:30:00",
-          email: "john@example.com",
-          name: "John Doe",
-          documentName: "Annual Report 2023",
-          documentType: "PDF",
-          category: "Financial",
-          serialNo: "DOC-001",
-          image: "https://drive.google.com/file/d/...",
-          sourceSheet: "Documents",
-          shareMethod: "Email",
-          number: ""
-        },
-        {
-          timestamp: "2024-01-15 15:15:00",
-          email: "",
-          name: "Jane Smith",
-          documentName: "Contract Agreement",
-          documentType: "PDF",
-          category: "Legal",
-          serialNo: "DOC-002",
-          image: "https://drive.google.com/file/d/...",
-          sourceSheet: "Documents",
-          shareMethod: "WhatsApp",
-          number: "+919876543210"
-        }
-      ];
-
-      setLogs(mockLogs);
+      setLogs(transformedLogs);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching sharing logs:", error);

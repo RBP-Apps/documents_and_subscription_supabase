@@ -4,7 +4,7 @@ import useHeaderStore from '../../store/headerStore';
 import { Search, FileText, X, Check, Calendar, Upload, Download, RotateCcw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatDate, parseDateFromInput, formatDateForGoogleSheets } from '../../utils/dateFormatter';
-import { fetchDocumentsFromGoogleSheets, updateGoogleSheetCellsBySn, submitToGoogleSheets, fetchRenewalHistoryFromGoogleSheets } from '../../utils/googleSheetsService';
+import supabase from '../../utils/supabase';
 
 const DocumentRenewal = () => {
     const { setTitle } = useHeaderStore();
@@ -30,6 +30,7 @@ const DocumentRenewal = () => {
     const [nextRenewalDate, setNextRenewalDate] = useState('');
     const [newFileName, setNewFileName] = useState('');
     const [newFileContent, setNewFileContent] = useState<string>('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     // Fetch documents from Google Sheets
     const loadDocuments = async (refreshDocuments = true) => {
@@ -39,14 +40,44 @@ const DocumentRenewal = () => {
 
             console.log('Fetching documents for renewal...');
 
-            const promises: Promise<any>[] = [fetchRenewalHistoryFromGoogleSheets()];
+            const { data: renewalData, error: renewalErr } = await supabase.from('Document Renewal').select('*');
+            if (renewalErr) throw renewalErr;
+
+            let fetchedDocs = documents;
             if (refreshDocuments || documents.length === 0) {
-                promises.push(fetchDocumentsFromGoogleSheets());
+                const { data: docsData, error: docsErr } = await supabase.from('Add New Document').select('*').eq('is_deleted', false);
+                if (docsErr) throw docsErr;
+
+                fetchedDocs = (docsData || []).map((doc: any) => ({
+                    id: doc.id ? doc.id.toString() : Math.random().toString(),
+                    sn: doc.serial_no || '',
+                    documentName: doc.document_name || '',
+                    documentType: doc.document_type || '',
+                    category: doc.category || '',
+                    companyName: doc.company_name || '',
+                    pName: doc.name || '',
+                    needsRenewal: doc.need_renewal || false,
+                    renewalDate: doc.renewal_date || undefined,
+                    file: doc.image || null,
+                    fileContent: doc.image || '',
+                    date: doc.created_at || '',
+                    status: doc.is_deleted ? 'Deleted' : 'Active',
+                    issueDate: doc.issue_date || undefined,
+                    concernPersonName: doc.concern_person_name || undefined,
+                    concernPersonMobile: doc.concern_person_mobile || undefined,
+                    concernPersonDepartment: doc.concern_person_department || undefined,
+                }));
             }
 
-            const results = await Promise.all(promises);
-            const fetchedHistory = results[0];
-            const fetchedDocs = results.length > 1 ? results[1] : documents;
+            const fetchedHistory = (renewalData || []).map((r: any) => ({
+                id: r.id?.toString() || Math.random().toString(),
+                sn: r.serial_no,
+                oldRenewalDate: r.last_renewal_date,
+                oldFileContent: r.old_image,
+                renewalStatus: r.need_renewal ? 'Yes' : 'No',
+                nextRenewalDate: r.new_renewal_date,
+                newFileContent: r.new_image
+            }));
 
             // Remove duplicates at frontend level
             const uniqueDocs = removeDuplicates(fetchedDocs);
@@ -81,7 +112,7 @@ const DocumentRenewal = () => {
             setHistoryDocuments(mergedHistory);
         } catch (err) {
             console.error("Error loading documents for renewal:", err);
-            const errorMessage = err instanceof Error ? err.message : "Failed to load documents from Google Sheets";
+            const errorMessage = err instanceof Error ? err.message : "Failed to load documents";
             setError(errorMessage);
             toast.error(errorMessage);
         } finally {
@@ -118,13 +149,6 @@ const DocumentRenewal = () => {
         }
     }, []);
 
-    // Filter Pending Documents: needsRenewal is true AND date is approaching (within 2 days) or past
-    // Filter Pending Documents: directly show all documents where needsRenewal is true
-    // AND 'Actual 1' (Column L) is NOT present (meaning it's still pending)
-    // Filter Pending Documents
-    // 1. needsRenewal must be true
-    // 2. 'Actual 1' must be empty (processed items have Actual 1)
-    // 3. Date must be missing, past, or impending (<= 30 days away)
     const pendingDocuments = documents.filter(doc => {
         return doc.needsRenewal;
     }).filter(doc =>
@@ -145,6 +169,7 @@ const DocumentRenewal = () => {
         setNextRenewalDate('');
         setNewFileName('');
         setNewFileContent('');
+        setSelectedFile(null);
         setIsRenewalModalOpen(true);
     };
 
@@ -162,6 +187,7 @@ const DocumentRenewal = () => {
                 return;
             }
             setNewFileName(file.name);
+            setSelectedFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setNewFileContent(reader.result as string);
@@ -280,93 +306,91 @@ const DocumentRenewal = () => {
 
                 // Check and upload file if new one is selected
                 let uploadedFileUrl = updatedDoc.fileContent;
-                if (newFileContent && newFileName) {
+                if (selectedFile) {
                     try {
-                        toast.loading("Uploading file to Drive...", { id: "update-sheet" });
-                        const uploadRes = await submitToGoogleSheets({
-                            action: 'uploadFile',
-                            data: {
-                                base64Data: newFileContent,
-                                fileName: newFileName,
-                                mimeType: newFileContent.split(';')[0].split(':')[1],
-                                folderId: import.meta.env.VITE_GOOGLE_RENEWAL_FOLDER_ID
-                            }
-                        });
+                        toast.loading("Uploading file...", { id: "update-sheet" });
+                        const cleanFileName = newFileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+                        const filePath = `doc_renewal_${Date.now()}_${cleanFileName}`;
 
-                        if (uploadRes.success && uploadRes.fileUrl) {
-                            uploadedFileUrl = uploadRes.fileUrl;
-                            // Update local store with the new URL
-                            updateDocument(selectedDoc.id, {
-                                ...updates,
-                                fileContent: uploadedFileUrl
+                        const { data, error: uploadError } = await supabase.storage
+                            .from("DRIVE_FOLDER")
+                            .upload(filePath, selectedFile, {
+                                cacheControl: "3600",
+                                upsert: false,
                             });
-                            // Also update 'updatedDoc' so subsequent sheet updates utilize the URL
-                            updatedDoc.fileContent = uploadedFileUrl;
-                        } else {
-                            throw new Error("Upload failed");
-                        }
+
+                        if (uploadError) throw uploadError;
+
+                        const { data: { publicUrl } } = supabase.storage
+                            .from("DRIVE_FOLDER")
+                            .getPublicUrl(data.path);
+                        
+                        uploadedFileUrl = publicUrl;
+
+                        // Update local store with the new URL
+                        updateDocument(selectedDoc.id, {
+                            ...updates,
+                            fileContent: uploadedFileUrl
+                        });
+                        updatedDoc.fileContent = uploadedFileUrl;
                     } catch (uploadError) {
                         console.error("File upload error:", uploadError);
                         toast.error("File upload failed, but proceeding with data update", { id: "update-sheet" });
                     }
                 }
 
-                // Format renewal date for Google Sheets
-                // User Request: If No renewal, store BLANK in date column, not "No"
-                const renewalDateForSheet = updatedDoc.needsRenewal
-                    ? (updatedDoc.renewalDate ? formatDateForGoogleSheets(updatedDoc.renewalDate) : '')
-                    : '';
+                // Prepare db updates
+                const dbUpdates: any = {
+                    need_renewal: updatedDoc.needsRenewal,
+                    renewal_date: updatedDoc.needsRenewal ? updatedDoc.renewalDate || null : null,
+                };
 
-                // Prepare cell updates
-                const cellUpdates = [
-                    { column: 7, value: updatedDoc.needsRenewal ? 'Yes' : 'No' }, // Need Renewal (G)
-                    { column: 8, value: renewalDateForSheet }, // Renewal Date (H) - Now blank if No
-                ];
-
-                // Update file content if it changed and exists.
-                // We allow updating the image even if renewal is "No" (as per user request)
                 if (updatedDoc.fileContent) {
-                    cellUpdates.push({ column: 9, value: updatedDoc.fileContent }); // Image (I)
+                    dbUpdates.image = updatedDoc.fileContent;
                 }
 
-                console.log('Updating Google Sheets by SN:', {
+                console.log('Updating Supabase by SN:', {
                     sn: selectedDoc.sn,
-                    updates: cellUpdates
+                    updates: dbUpdates
                 });
 
-                await updateGoogleSheetCellsBySn('Documents', selectedDoc.sn, cellUpdates);
+                const { error: updateError } = await supabase
+                    .from('Add New Document')
+                    .update(dbUpdates)
+                    .eq('serial_no', selectedDoc.sn);
 
-                // 4. Log to "Document Renewal" Sheet
-                const logStatus = againRenewal ? 'Yes' : 'No';
-                const logNewDate = (againRenewal && formattedNextRenewalDate) ? formatDateForGoogleSheets(formattedNextRenewalDate) : '';
-                const logNewImage = updatedDoc.fileContent || '';
+                if (updateError) throw updateError;
 
-                const renewalLogData = [
-                    new Date().toLocaleString(), // A: Timestamp
-                    selectedDoc.sn, // B: Serial No
-                    // C: Last Renewal Date
-                    (selectedDoc.renewalDate && selectedDoc.renewalDate !== 'No') ? formatDateForGoogleSheets(selectedDoc.renewalDate) : '',
-                    selectedDoc.fileContent || '', // D: Old Image
-                    logStatus, // E: Need Renewal
-                    logNewDate, // F: New Renewal Date
-                    logNewImage // G: New Image
-                ];
+                // 4. Log to "Document Renewal" Table
+                const logNeedRenewal = againRenewal;
+                const logNewDate = (againRenewal && formattedNextRenewalDate) ? formattedNextRenewalDate : null;
+                const logNewImage = updatedDoc.fileContent || null;
 
-                await submitToGoogleSheets({
-                    action: 'insert',
-                    sheetName: 'Document Renewal',
-                    data: renewalLogData
-                });
-                console.log('Logged to Document Renewal sheet');
+                const renewalLogData = {
+                    serial_no: selectedDoc.sn,
+                    last_renewal_date: (selectedDoc.renewalDate && selectedDoc.renewalDate !== 'No') ? selectedDoc.renewalDate : null,
+                    old_image: selectedDoc.fileContent || null,
+                    need_renewal: logNeedRenewal,
+                    new_renewal_date: logNewDate,
+                    new_image: logNewImage
+                };
 
-                toast.success("Document updated in Google Sheets", { id: "update-sheet" });
+                const { error: insertError } = await supabase
+                    .from('Document Renewal')
+                    .insert([renewalLogData]);
+
+                if (insertError) throw insertError;
+
+                console.log('Logged to Document Renewal table');
+
+                toast.success("Document updated successfully", { id: "update-sheet" });
             }
         } catch (error) {
-            console.error("Failed to update Google Sheets:", error);
-            toast.error("Updated locally, but failed to update Google Sheets", { id: "update-sheet" });
+            console.error("Failed to update Supabase:", error);
+            toast.error("Updated locally, but failed to update Supabase", { id: "update-sheet" });
         }
 
-        // 4. Refresh documents from Google Sheets
+        // 4. Refresh documents from Supabase
         await loadDocuments();
 
         toast.success("Renewal processed successfully");
@@ -453,7 +477,7 @@ const DocumentRenewal = () => {
                     {/* Refresh Button */}
                     <button
                         onClick={() => loadDocuments(true)}
-                        title="Refresh Data from Google Sheets"
+                        title="Refresh Data"
                         className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-indigo-600 transition-colors"
                         disabled={isLoading}
                     >
