@@ -6,6 +6,8 @@ import useDataStore from '../../store/dataStore';
 import supabase from '../../utils/supabase';
 import type { DocumentItem } from '../../store/dataStore';
 import emailjs from "emailjs-com";
+import { sendWhatsAppMessage } from '../../utils/whatsappService';
+import { logWhatsApp } from '../../utils/whatsappLog';
 
 
 interface ShareModalProps {
@@ -79,45 +81,101 @@ const ShareModal: React.FC<ShareModalProps> = ({
         prevIsOpenRef.current = isOpen;
     }, [isOpen]); // Only depend on isOpen
 
-    // Handle WhatsApp sharing
-    const handleShareWhatsApp = (): void => {
-        const whatsappMessage = generateWhatsAppMessage();
-        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
-
-        // Log the WhatsApp sharing activity with expiry
-        if (isBatch && batchDocuments.length > 0) {
-            const logs = batchDocuments.map((doc) => ({
-                name: recipientName,
-                document_name: doc.documentName,
-                document_type: doc.documentType,
-                category: doc.category,
-                serial_no: doc.sn,
-                image: doc.fileContent,
-                share_method: 'WhatsApp',
-                number: whatsapp,
-                source_sheet: 'Documents'
-            }));
-
-            supabase.from('Shared_Documents').insert(logs).then(({ error }) => {
-                if (error) console.error("Error logging whatsapp share:", error);
-            });
-        } else if (documentDetails) {
-            supabase.from('Shared_Documents').insert([{
-                name: recipientName,
-                document_name: documentName,
-                document_type: documentDetails.documentType,
-                category: documentDetails.category,
-                serial_no: documentDetails.sn,
-                image: fileContent,
-                share_method: 'WhatsApp',
-                number: whatsapp,
-                source_sheet: 'Documents'
-            }]).then(({ error }) => {
-                if (error) console.error("Error logging whatsapp share:", error);
-            });
+    // ============================================================
+    // Handle WhatsApp sharing — Meta Business API (Direct)
+    // wa.me link nahi — seedha API call hogi
+    // Console + Network Tab mein full log visible hoga
+    // ============================================================
+    const handleShareWhatsApp = async (): Promise<boolean> => {
+        if (!whatsapp.trim()) {
+            toast.error('Please enter WhatsApp number');
+            return false;
         }
 
-        window.open(whatsappUrl, '_blank');
+        // Format number: strip non-digits, prepend country code 91 if not present
+        const rawDigits = whatsapp.replace(/\D/g, '');
+        const to = rawDigits.startsWith('91') && rawDigits.length === 12
+            ? rawDigits
+            : `91${rawDigits}`;
+
+        logWhatsApp('INFO', { action: 'WhatsApp send initiated', to, documentName });
+
+        setIsSending(true);
+        try {
+            if (isBatch && batchDocuments.length > 0) {
+                // Batch: send one message per document
+                for (const doc of batchDocuments) {
+                    const previewUrl = getPreviewUrl(doc.fileContent);
+                    await sendWhatsAppMessage({
+                        to,
+                        name: recipientName || 'there',
+                        documentName: doc.documentName,
+                        category: doc.category || '',
+                        company: doc.companyName || '',
+                        type: doc.documentType || '',
+                        link: previewUrl || 'N/A',
+                    });
+                }
+
+                // Log batch to Supabase
+                const logs = batchDocuments.map((doc) => ({
+                    name: recipientName,
+                    document_name: doc.documentName,
+                    document_type: doc.documentType,
+                    category: doc.category,
+                    serial_no: doc.sn,
+                    image: doc.fileContent,
+                    share_method: 'WhatsApp',
+                    number: whatsapp,
+                    source_sheet: 'Documents',
+                }));
+                supabase.from('Shared_Documents').insert(logs).then(({ error }) => {
+                    if (error) console.error('Error logging batch whatsapp share:', error);
+                });
+
+                logWhatsApp('BATCH_SENT', { count: batchDocuments.length, to });
+                toast.success(`WhatsApp sent for ${batchDocuments.length} documents ✅`);
+
+            } else if (documentDetails) {
+                // Single document
+                const previewUrl = getPreviewUrl(fileContent);
+                await sendWhatsAppMessage({
+                    to,
+                    name: recipientName || 'there',
+                    documentName: documentName,
+                    category: documentDetails.category || '',
+                    company: documentDetails.companyName || '',
+                    type: documentDetails.documentType || '',
+                    link: previewUrl || 'N/A',
+                });
+
+                // Log single to Supabase
+                supabase.from('Shared_Documents').insert([{
+                    name: recipientName,
+                    document_name: documentName,
+                    document_type: documentDetails.documentType,
+                    category: documentDetails.category,
+                    serial_no: documentDetails.sn,
+                    image: fileContent,
+                    share_method: 'WhatsApp',
+                    number: whatsapp,
+                    source_sheet: 'Documents',
+                }]).then(({ error }) => {
+                    if (error) console.error('Error logging whatsapp share:', error);
+                });
+
+                logWhatsApp('SENT', { documentName, to });
+                toast.success('WhatsApp message sent successfully ✅');
+            }
+
+            return true;
+        } catch (error: any) {
+            logWhatsApp('ERROR', { message: error?.message, error });
+            toast.error(`WhatsApp failed: ${error?.message || 'Unknown error'} ❌`);
+            return false;
+        } finally {
+            setIsSending(false);
+        }
     };
 
     if (!isOpen || !type) return null;
@@ -293,10 +351,11 @@ const ShareModal: React.FC<ShareModalProps> = ({
             }
         }
 
-        // Handle WhatsApp if applicable
+        // Handle WhatsApp if applicable — Meta API (async)
         if (type === 'whatsapp' || type === 'both') {
-            handleShareWhatsApp();
-            whatsappOpened = true;
+            const wpSuccess = await handleShareWhatsApp();
+            whatsappOpened = wpSuccess;
+            if (!wpSuccess && type === 'whatsapp') return;
         }
 
         // Add to share history
@@ -376,7 +435,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
             }
 
             // Close modal after successful sharing
-            if ((type === 'email' && emailSuccess) || type === 'whatsapp' || (type === 'both' && (emailSuccess || whatsappOpened))) {
+            if ((type === 'email' && emailSuccess) || (type === 'whatsapp' && whatsappOpened) || (type === 'both' && (emailSuccess || whatsappOpened))) {
                 setTimeout(() => {
                     onClose();
                     // Reset form

@@ -497,9 +497,10 @@ const AllDocuments = () => {
 
         {/* Desktop Table View */}
         {!isLoading && !error && (
-          <div className="hidden md:flex flex-col bg-white rounded-xl shadow-input overflow-hidden h-[calc(100vh-350px)]">
-            <div className="overflow-y-auto flex-1">
-              <table className="w-full text-center border-collapse">
+          <div className="hidden md:flex flex-col bg-white rounded-xl shadow-input h-[calc(100vh-200px)]">
+            {/* Scroll container — both axes */}
+            <div className="overflow-x-auto overflow-y-auto h-[320px]">
+              <table className="min-w-max w-full text-center border-collapse">
                 <thead className="sticky top-0 z-20 bg-gray-50 shadow-sm text-nowrap">
                   <tr className="border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
                     <th className="px-3 py-2 w-10 text-center bg-gray-50">

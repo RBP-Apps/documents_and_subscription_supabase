@@ -180,34 +180,16 @@ const AllBG = () => {
                                                 <td className="px-4 py-4 text-gray-500 text-xs whitespace-nowrap">{item.extendExpiryDate ? formatDate(item.extendExpiryDate) : '-'}</td>
                                                 <td className="px-4 py-4 text-right">
                                                     {item.file ? (
-                                                        <div className="group relative inline-block text-left">
-                                                            <a
-                                                                href={getFileUrl(item.fileContent)}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all duration-200 shadow-sm"
-                                                                title={item.file}
-                                                            >
-                                                                <FileText size={16} />
-                                                                <span className="text-[11px] font-bold truncate max-w-[80px] hidden xl:inline">View</span>
-                                                            </a>
-                                                            {item.fileContent && (
-                                                                <div className="absolute right-0 top-full mt-2 hidden group-hover:block z-[100] w-72 h-80 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden pointer-events-none animate-in fade-in slide-in-from-top-2 duration-200">
-                                                                    {item.fileContent.startsWith('data:image') ? (
-                                                                        <img src={item.fileContent} className="w-full h-full object-contain bg-gray-50 p-2" alt="Preview" />
-                                                                    ) : (
-                                                                        <iframe
-                                                                            src={getFileUrl(item.fileContent)}
-                                                                            className="w-full h-full border-none"
-                                                                            title="Preview"
-                                                                        />
-                                                                    )}
-                                                                    <div className="absolute bottom-0 left-0 right-0 bg-indigo-600/90 backdrop-blur-sm px-3 py-1.5 text-[10px] text-white font-medium truncate">
-                                                                        Preview: {item.file}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                        <a
+                                                            href={getFileUrl(item.fileContent)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all duration-200 shadow-sm"
+                                                            title={item.file}
+                                                        >
+                                                            <FileText size={16} />
+                                                            <span className="text-[11px] font-bold hidden xl:inline">View</span>
+                                                        </a>
                                                     ) : (
                                                         <span className="text-gray-400 font-mono">-</span>
                                                     )}
@@ -270,30 +252,15 @@ const AllBG = () => {
                                         {item.file && (
                                             <div className="flex justify-between items-center bg-indigo-50/50 p-3 rounded-xl border border-indigo-50">
                                                 <span className="text-xs text-gray-500 font-medium">Document File</span>
-                                                <div className="group relative">
-                                                    <a
-                                                        href={getFileUrl(item.fileContent)}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-2 text-indigo-600 font-bold hover:text-indigo-800 transition-colors text-xs"
-                                                    >
-                                                        <FileText size={16} />
-                                                        <span>View File</span>
-                                                    </a>
-                                                    {item.fileContent && (
-                                                        <div className="absolute bottom-full right-0 mb-3 hidden group-hover:block z-[100] w-64 h-72 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden pointer-events-none animate-in fade-in slide-in-from-bottom-2 duration-200 ring-4 ring-indigo-50">
-                                                            {item.fileContent.startsWith('data:image') ? (
-                                                                <img src={item.fileContent} className="w-full h-full object-contain bg-gray-50 p-2" alt="Preview" />
-                                                            ) : (
-                                                                <iframe
-                                                                    src={getFileUrl(item.fileContent)}
-                                                                    className="w-full h-full border-none"
-                                                                    title="Preview"
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                <a
+                                                    href={getFileUrl(item.fileContent)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-2 text-indigo-600 font-bold hover:text-indigo-800 transition-colors text-xs"
+                                                >
+                                                    <FileText size={16} />
+                                                    <span>View File</span>
+                                                </a>
                                             </div>
                                         )}
                                         {item.remarks && (

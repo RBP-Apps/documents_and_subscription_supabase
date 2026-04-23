@@ -268,21 +268,35 @@ const SubscriptionRenewal = () => {
                         <div className="flex bg-gray-100 p-0 rounded-lg">
                             <button
                                 onClick={() => setActiveTab('pending')}
-                                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'pending'
+                                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'pending'
                                     ? 'bg-white text-indigo-600 shadow-sm'
                                     : 'text-gray-500 hover:text-gray-700'
                                     }`}
                             >
                                 Pending
+                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                                    activeTab === 'pending'
+                                        ? 'bg-indigo-100 text-indigo-600'
+                                        : 'bg-gray-200 text-gray-500'
+                                }`}>
+                                    {pendingSubscriptions.length}
+                                </span>
                             </button>
                             <button
                                 onClick={() => setActiveTab('history')}
-                                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'history'
+                                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'history'
                                     ? 'bg-white text-indigo-600 shadow-sm'
                                     : 'text-gray-500 hover:text-gray-700'
                                     }`}
                             >
                                 History
+                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                                    activeTab === 'history'
+                                        ? 'bg-indigo-100 text-indigo-600'
+                                        : 'bg-gray-200 text-gray-500'
+                                }`}>
+                                    {historySubscriptions.length}
+                                </span>
                             </button>
                         </div>
 

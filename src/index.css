@@ -8,6 +8,7 @@
   }
 }
 
+/* ── Utility: explicitly hide scrollbar where needed ── */
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -15,26 +16,33 @@
 
   .no-scrollbar {
     -ms-overflow-style: none;
-    /* IE and Edge */
     scrollbar-width: none;
-    /* Firefox */
   }
 }
 
-/* Hide Scrollbar Completely Globally */
+/* ── Global scrollbar: thin, visible, styled ── */
 ::-webkit-scrollbar {
-  width: 0px;
-  height: 0px;
-  background: transparent;
-  /* make it invisible */
-  display: none;
-  /* safeguard */
+  width: 6px;
+  height: 6px;
+  display: block; /* IMPORTANT: do NOT set display:none globally */
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f1f5f9; /* slate-100 */
+  border-radius: 99px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: #cbd5e1; /* slate-300 */
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; /* slate-400 */
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
 }

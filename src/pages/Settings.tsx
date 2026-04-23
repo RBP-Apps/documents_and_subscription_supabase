@@ -60,7 +60,7 @@ const Settings = () => {
         permissions: []
     });
 
-    const availablePermissions = ['Dashboard', 'Resource Manager', 'Loan', 'Settings'];
+    const availablePermissions = ['Dashboard', 'Resource Manager', 'Loan', 'Settings' ,'BG'];
 
     const openAddUserModal = () => {
         setEditingUser(null);

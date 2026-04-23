@@ -4,6 +4,7 @@ import { User, Lock, Eye, EyeOff, FileText } from "lucide-react";
 import useAuthStore from "../store/authStore";
 import toast from "react-hot-toast";
 
+
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -53,8 +54,9 @@ const Login = () => {
         <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-input">
           <div className="text-center mb-4">
             <div className="flex justify-center mb-4">
-              <div className="h-40 w-40 flex items-center justify-center rounded-full bg-white shadow-md">
-                <FileText className="h-20 w-20 text-indigo-600" />
+              <div className="h-40 w-40 flex items-center justify-center  bg-white ">
+                {/* <FileText className="h-20 w-20 text-indigo-600" /> */}
+                <img src="RBP_LOGO.PNG" alt="" />
               </div>
             </div>
             <h2 className="text-3xl font-bold text-gray-900">
