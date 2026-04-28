@@ -81,10 +81,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
         prevIsOpenRef.current = isOpen;
     }, [isOpen]); // Only depend on isOpen
 
-    // ============================================================
-    // Handle WhatsApp sharing — Meta Business API (Direct)
-    // wa.me link nahi — seedha API call hogi
-    // Console + Network Tab mein full log visible hoga
+    
     // ============================================================
     const handleShareWhatsApp = async (): Promise<boolean> => {
         if (!whatsapp.trim()) {

@@ -31,15 +31,15 @@ const AllSubscriptions = () => {
   };
 
   const formatDate = (date) => {
-  if (!date) return "-";
-  const d = new Date(date);
+    if (!date) return "-";
+    const d = new Date(date);
 
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
 
-  return `${day}-${month}-${year}`;
-};
+    return `${day}-${month}-${year}`;
+  };
 
 
   useEffect(() => {
@@ -179,7 +179,7 @@ const AllSubscriptions = () => {
 
         {/* Desktop Table */}
         <div className="hidden md:flex flex-col bg-white rounded-xl shadow-input overflow-hidden">
-          <div className="overflow-auto">
+          <div className="overflow-auto" style={{ maxHeight: '350px' }}>
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider whitespace-nowrap">
