@@ -32,6 +32,15 @@ import LoanNOC from "./pages/loan/NOC";
 // BG Pages
 import AllBG from "./pages/bg/AllBG";
 
+// Insurance Pages
+import VehicleInsurance from "./pages/Insurance/vehicle/vehicle";
+import HealthInsurance from "./pages/Insurance/Health/Health";
+import GeneralInsurance from "./pages/Insurance/General/General";
+
+// Property TAx
+import PropertyTax from "./pages/propertytax/PropertyTax";
+
+
 import MasterPage from "./pages/master/MasterPage";
 
 // Main Router Configuration
@@ -82,6 +91,19 @@ function App() {
              <Route index element={<Navigate to="all" replace />} />
              <Route path="all" element={<AllBG />} />
           </Route>
+
+
+          {/* Insurance Routes */}
+          <Route path="Insurance">
+             <Route index element={<Navigate to="vehicle" replace />} />
+             <Route path="vehicle" element={<VehicleInsurance />} />
+             <Route path="health" element={<HealthInsurance />} />
+             <Route path="general" element={<GeneralInsurance />} />
+          </Route>
+
+          {/* Property Tax */}
+         
+         <Route path="propertytax" element={<PropertyTax />} />
 
           <Route path="master" element={<MasterPage />} />
           <Route path="resource-manager" element={<ResourceManager />} />
