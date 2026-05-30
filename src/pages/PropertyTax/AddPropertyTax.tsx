@@ -6,8 +6,6 @@ import {
   Save,
   Loader2,
   Building2,
-  Calendar,
-  FileText,
 } from 'lucide-react';
 import supabase from '../../utils/supabase';
 

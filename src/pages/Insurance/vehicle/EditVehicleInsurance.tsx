@@ -6,7 +6,6 @@ import {
   Save,
   Loader2,
   Car,
-  Eye,
 } from 'lucide-react';
 import supabase from '../../../utils/supabase';
 
@@ -95,14 +94,6 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
     setFileName('');
   };
 
-  const handleViewFile = () => {
-    const fileLink = insuranceData?.file_url || insuranceData?.policy_link;
-    if (fileLink) {
-      window.open(fileLink, '_blank');
-    } else {
-      toast.error('No file available to view');
-    }
-  };
 
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>

@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import {
   Plus,
   Search,
-  Eye,
   Edit,
   Trash2,
   FileText,
@@ -12,8 +11,8 @@ import {
 import { toast } from 'react-hot-toast';
 import supabase from '../../utils/supabase';
 import useHeaderStore from '../../store/headerStore';
-import AddPropertyTax from './AddPropertyTax';
-import EditPropertyTax from './EditPropertyTax';
+import AddPropertyTax from './AddPropertyTax.tsx';
+import EditPropertyTax from './EditPropertyTax.tsx';
 
 interface PropertyTax {
   id: string;

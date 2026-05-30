@@ -38,7 +38,7 @@ import HealthInsurance from "./pages/Insurance/Health/Health";
 import GeneralInsurance from "./pages/Insurance/General/General";
 
 // Property TAx
-import PropertyTax from "./pages/propertytax/PropertyTax";
+import PropertyTax from "./pages/PropertyTax/PropertyTax";
 
 
 import MasterPage from "./pages/master/MasterPage";

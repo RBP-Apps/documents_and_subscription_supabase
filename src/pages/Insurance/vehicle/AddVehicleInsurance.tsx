@@ -4,9 +4,6 @@ import {
   X,
   Save,
   Loader2,
-  FileText,
-  Calendar,
-  Building,
   Car,
 } from 'lucide-react';
 import supabase from '../../../utils/supabase';

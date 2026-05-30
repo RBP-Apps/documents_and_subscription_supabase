@@ -4,7 +4,6 @@ import {
   Plus,
   Search,
   Car,
-  Eye,
   Edit,
   Trash2,
   FileText,
@@ -242,7 +241,7 @@ const Vehicle = () => {
               </thead>
 
               <tbody className="divide-y divide-gray-100">
-                {filteredData.map((item, index) => (
+                {filteredData.map((item) => (
                   <tr key={item.id} className="hover:bg-indigo-50/30 transition">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-indigo-600">

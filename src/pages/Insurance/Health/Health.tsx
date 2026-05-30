@@ -1,4 +1,5 @@
-import React from "react";
+"use client"
+// import React from "react";
 
 const HealthInsurance = () => {
   return (
@@ -8,8 +9,7 @@ const HealthInsurance = () => {
           Health Insurance
         </h1>
 
-        
-    
+      
       </div>
     </div>
   );
