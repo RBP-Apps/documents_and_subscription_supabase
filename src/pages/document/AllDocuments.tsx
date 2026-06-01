@@ -36,6 +36,10 @@ const AllDocuments = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedDocumentName, setSelectedDocumentName] = useState("");
+  const [selectedCompanyName, setSelectedCompanyName] = useState("");
+  const [selectedConcernPersonName, setSelectedConcernPersonName] = useState("");
+
   useEffect(() => {
     setTitle("All Document");
     loadDocuments();
@@ -126,20 +130,58 @@ const AllDocuments = () => {
     }
   };
 
+  // Unique values for filter dropdowns
+  const uniqueDocumentNames = Array.from(
+    new Set(documents.map((d) => d.documentName).filter(Boolean))
+  ).sort();
+
+  const uniqueCompanyNames = Array.from(
+    new Set(documents.map((d) => d.companyName).filter(Boolean))
+  ).sort();
+
+  const uniqueConcernPersonNames = Array.from(
+    new Set(documents.map((d) => d.concernPersonName).filter(Boolean))
+  ).sort();
+
   const filteredData = documents
     .filter((item) => {
-      const matchesSearch =
-        item.documentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) || // Search in companyName (name field)
-        (item.pName?.toLowerCase().includes(searchTerm.toLowerCase()) || false) || // Search in name field if exists
-        (item.companyBranch?.toLowerCase().includes(searchTerm.toLowerCase()) || false) || // Search in companyBranch
-        item.sn.toLowerCase().includes(searchTerm.toLowerCase());
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = searchTerm
+        ? (item.sn?.toLowerCase().includes(searchLower) ||
+           item.documentName?.toLowerCase().includes(searchLower) ||
+           item.documentType?.toLowerCase().includes(searchLower) ||
+           item.companyName?.toLowerCase().includes(searchLower) ||
+           item.concernPersonName?.toLowerCase().includes(searchLower) ||
+           item.pName?.toLowerCase().includes(searchLower) ||
+           item.category?.toLowerCase().includes(searchLower) ||
+           item.concernPersonMobile?.toLowerCase().includes(searchLower) ||
+           item.concernPersonDepartment?.toLowerCase().includes(searchLower) ||
+           item.companyBranch?.toLowerCase().includes(searchLower))
+        : true;
 
       const matchesCategory = filterCategory
         ? item.category === filterCategory
         : true;
 
-      return matchesSearch && matchesCategory;
+      const matchesDocumentName = selectedDocumentName
+        ? item.documentName === selectedDocumentName
+        : true;
+
+      const matchesCompanyName = selectedCompanyName
+        ? item.companyName === selectedCompanyName
+        : true;
+
+      const matchesConcernPersonName = selectedConcernPersonName
+        ? item.concernPersonName === selectedConcernPersonName
+        : true;
+
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesDocumentName &&
+        matchesCompanyName &&
+        matchesConcernPersonName
+      );
     })
     .sort((a, b) => {
       const getSnNumber = (sn: string) => {
@@ -220,14 +262,14 @@ const AllDocuments = () => {
     if (doc && doc.id && !isNaN(Number(doc.id))) {
       try {
         toast.loading("Deleting from cloud...", { id: "delete-toast" });
-        
+
         const { error } = await supabase
           .from('Add New Document')
           .update({ is_deleted: true })
           .eq('id', Number(doc.id));
 
         if (error) throw error;
-        
+
         toast.success("Document deleted from cloud", { id: "delete-toast" });
       } catch (error) {
         console.error("Failed to delete from cloud", error);
@@ -402,46 +444,13 @@ const AllDocuments = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 type="text"
-                placeholder="Search documents..."
+                placeholder="Search All documents..."
                 className="pl-10 pr-4 py-2.5 w-full shadow-input border-none rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
 
-            {/* Filter Dropdown */}
-            <div className="relative">
-              <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="appearance-none pl-4 pr-10 py-2.5 shadow-input border-none rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 text-gray-700 text-sm font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-              >
-                <option value="">All Categories</option>
-                {Array.from(new Set(documents.map((d) => d.category)))
-                  .filter(Boolean)
-                  .sort()
-                  .map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-              </select>
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </div>
-            </div>
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg transition-all shadow-md hover:shadow-lg whitespace-nowrap"
@@ -450,6 +459,80 @@ const AllDocuments = () => {
               <span>Add New</span>
             </button>
           </div>
+        </div>
+
+        {/* Dropdown Filters */}
+        <div className="bg-white p-4 rounded-xl shadow-input space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Document Name
+              </label>
+              <select
+                value={selectedDocumentName}
+                onChange={(e) => setSelectedDocumentName(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              >
+                <option value="">All Document Names</option>
+                {uniqueDocumentNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Company Name
+              </label>
+              <select
+                value={selectedCompanyName}
+                onChange={(e) => setSelectedCompanyName(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              >
+                <option value="">All Companies</option>
+                {uniqueCompanyNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Concern Person Name
+              </label>
+              <select
+                value={selectedConcernPersonName}
+                onChange={(e) => setSelectedConcernPersonName(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              >
+                <option value="">All Concern Persons</option>
+                {uniqueConcernPersonNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {(selectedDocumentName || selectedCompanyName || selectedConcernPersonName || searchTerm) && (
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => {
+                  setSelectedDocumentName("");
+                  setSelectedCompanyName("");
+                  setSelectedConcernPersonName("");
+                  setSearchTerm("");
+                }}
+                className="text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition"
+              >
+                Clear Filters
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Loading State */}
@@ -524,17 +607,27 @@ const AllDocuments = () => {
                       Serial No
                     </th>
                     <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
+                      File
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
                       Document Name
                     </th>
                     <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
                       Document Type
                     </th>
                     <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
-                      Category
+                      Company Name
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
+                      Concern Person Name
                     </th>
                     <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
                       Name
                     </th>
+                    <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
+                      Category
+                    </th>
+
                     <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
                       Issue Date
                     </th>
@@ -544,21 +637,15 @@ const AllDocuments = () => {
                     <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
                       Renewal Date
                     </th>
-                    <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
-                      File
-                    </th>
-                    <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
-                      Concern Person Name
-                    </th>
+
+
                     <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
                       Concern Mobile Number
                     </th>
                     <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
                       Issued by
                     </th>
-                    <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
-                      Company Name
-                    </th>
+
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-gray-50 text-center">
@@ -663,6 +750,19 @@ const AllDocuments = () => {
                       <td className="px-3 py-2 font-bold text-gray-700 text-xs text-center">
                         {item.sn}
                       </td>
+                      <td className="px-3 py-2">
+                        {item.file ? (
+                          <div
+                            onClick={() => handleDownload(item.fileContent)}
+                            className="flex items-center justify-center gap-2 text-indigo-600 text-xs cursor-pointer hover:underline"
+                          >
+                            <Download size={14} />
+                            <span className="truncate max-w-[100px]">View</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-gray-900">
                         <div className="flex items-center justify-center gap-2">
                           {item.documentName}
@@ -671,13 +771,20 @@ const AllDocuments = () => {
                       <td className="px-3 py-2 text-gray-600 text-center">
                         {item.documentType}
                       </td>
+                      <td className="px-3 py-2 text-gray-700 text-center">
+                        {item.companyName || "-"}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700 text-center">
+                        {item.concernPersonName || "-"}
+                      </td>
+
+                      <td className="px-3 py-2 font-medium text-gray-900 text-center">
+                        {item.pName || "-"}
+                      </td>
                       <td className="px-3 py-2 text-gray-600 text-center">
                         <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
                           {item.category}
                         </span>
-                      </td>
-                      <td className="px-3 py-2 font-medium text-gray-900 text-center">
-                        {item.pName || "-"}
                       </td>
                       <td className="px-3 py-2 text-gray-700 font-mono text-xs text-center text-nowrap">
                         {formatDate(item.issueDate)}
@@ -696,31 +803,15 @@ const AllDocuments = () => {
                       <td className="px-3 py-2 text-gray-500 font-mono text-xs text-center">
                         {formatDate(item.renewalDate)}
                       </td>
-                      <td className="px-3 py-2">
-                        {item.file ? (
-                          <div
-                            onClick={() => handleDownload(item.fileContent)}
-                            className="flex items-center justify-center gap-2 text-indigo-600 text-xs cursor-pointer hover:underline"
-                          >
-                            <Download size={14} />
-                            <span className="truncate max-w-[100px]">View</span>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-xs">-</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700 text-center">
-                        {item.concernPersonName || "-"}
-                      </td>
+
+
                       <td className="px-3 py-2 text-gray-700 text-center">
                         {item.concernPersonMobile || "-"}
                       </td>
                       <td className="px-3 py-2 text-gray-700 text-center">
                         {item.concernPersonDepartment || "-"}
                       </td>
-                      <td className="px-3 py-2 text-gray-700 text-center">
-                        {item.companyName || "-"}
-                      </td>
+
                     </tr>
                   ))}
                   {filteredData.length === 0 && (

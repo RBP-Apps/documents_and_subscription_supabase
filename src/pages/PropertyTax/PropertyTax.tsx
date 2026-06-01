@@ -19,15 +19,15 @@ interface PropertyTax {
   serial_no: string;
   property_name: string;
   property_address: string;
-  property_id: string;
+  property_uid: string;
   authority_name: string;
   financial_year: string;
-  due_date: string;
-  amount_paid: number;
+  tracking_id: string;
+  amount_paid: string;
   payment_date: string;
-  receipt_number: string;
+  annual_rental_value: string;
   document_url: string;
-  remarks: string;
+  property_type: string;
   created_at: string;
 }
 
@@ -112,7 +112,7 @@ const PropertyTax = () => {
       item.property_name
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
-      item.property_id
+      item.property_uid
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
       item.authority_name
@@ -131,16 +131,20 @@ const PropertyTax = () => {
 
   const formatDate = (date: string) => {
     if (!date) return '-';
+    const parsed = Date.parse(date);
+    if (isNaN(parsed) || date.length < 8) return date;
     return new Date(date).toLocaleDateString('en-IN');
   };
 
-  const formatAmount = (amount: number) => {
+  const formatAmount = (amount: string | number) => {
     if (!amount) return '₹0';
+    const num = typeof amount === 'number' ? amount : Number(amount);
+    if (isNaN(num)) return amount.toString();
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0,
-    }).format(amount);
+    }).format(num);
   };
 
   const authorities = [
@@ -226,18 +230,18 @@ const PropertyTax = () => {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr className="text-xs uppercase text-gray-600 font-semibold tracking-wider">
-                  <th className="px-6 py-4 text-left">S.NO</th>
+                  <th className="px-6 py-4 text-left">SR NO</th>
+                  <th className="px-6 py-4 text-left">TRACKING ID</th>
+                  <th className="px-6 py-4 text-left">PROPERTY UID</th>
                   <th className="px-6 py-4 text-left">PROPERTY NAME</th>
                   <th className="px-6 py-4 text-left">PROPERTY ADDRESS</th>
-                  <th className="px-6 py-4 text-left">PROPERTY ID</th>
+                  <th className="px-6 py-4 text-left">PROPERTY TYPE</th>
                   <th className="px-6 py-4 text-left">AUTHORITY NAME</th>
                   <th className="px-6 py-4 text-left">FINANCIAL YEAR</th>
-                  <th className="px-6 py-4 text-left">DUE DATE</th>
+                  <th className="px-6 py-4 text-left">ANNUAL RENTAL VALUE</th>
                   <th className="px-6 py-4 text-right">AMOUNT PAID</th>
                   <th className="px-6 py-4 text-left">PAYMENT DATE</th>
-                  <th className="px-6 py-4 text-left">RECEIPT NUMBER</th>
                   <th className="px-6 py-4 text-center">DOCUMENT</th>
-                  <th className="px-6 py-4 text-left">REMARKS</th>
                   <th className="px-6 py-4 text-center">ACTION</th>
                 </tr>
               </thead>
@@ -250,14 +254,20 @@ const PropertyTax = () => {
                         {item.serial_no}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {formatDate(item.tracking_id)}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {item.property_uid}
+                    </td>
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {item.property_name}
                     </td>
                     <td className="px-6 py-4 text-gray-600">
                       {item.property_address}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.property_id}
+                    <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
+                      {item.property_type || '-'}
                     </td>
                     <td className="px-6 py-4 text-gray-600">
                       {item.authority_name}
@@ -266,16 +276,13 @@ const PropertyTax = () => {
                       {item.financial_year}
                     </td>
                     <td className="px-6 py-4 text-gray-600">
-                      {formatDate(item.due_date)}
+                      {item.annual_rental_value || '-'}
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-gray-900">
                       {formatAmount(item.amount_paid)}
                     </td>
                     <td className="px-6 py-4 text-gray-600">
                       {item.payment_date ? formatDate(item.payment_date) : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.receipt_number || '-'}
                     </td>
                     <td className="px-6 py-4 text-center">
                       {item.document_url ? (
@@ -289,9 +296,6 @@ const PropertyTax = () => {
                       ) : (
                         <span className="text-gray-400 text-sm">-</span>
                       )}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
-                      {item.remarks || '-'}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-center gap-2">

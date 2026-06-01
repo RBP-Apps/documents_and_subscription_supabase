@@ -27,14 +27,14 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
     id: '',
     property_name: '',
     property_address: '',
-    property_id: '',
+    property_uid: '',
     authority_name: '',
     financial_year: '',
-    due_date: '',
+    tracking_id: '',
     amount_paid: '',
     payment_date: '',
-    receipt_number: '',
-    remarks: '',
+    annual_rental_value: '',
+    property_type: '',
     document_url: '',
   });
 
@@ -48,14 +48,14 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
         id: taxData.id || '',
         property_name: taxData.property_name || '',
         property_address: taxData.property_address || '',
-        property_id: taxData.property_id || '',
+        property_uid: taxData.property_uid || '',
         authority_name: taxData.authority_name || '',
         financial_year: taxData.financial_year || '',
-        due_date: taxData.due_date || '',
+        tracking_id: taxData.tracking_id || '',
         amount_paid: taxData.amount_paid?.toString() || '',
         payment_date: taxData.payment_date || '',
-        receipt_number: taxData.receipt_number || '',
-        remarks: taxData.remarks || '',
+        annual_rental_value: taxData.annual_rental_value || '',
+        property_type: taxData.property_type || '',
         document_url: taxData.document_url || '',
       });
     }
@@ -84,14 +84,14 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
       id: '',
       property_name: '',
       property_address: '',
-      property_id: '',
+      property_uid: '',
       authority_name: '',
       financial_year: '',
-      due_date: '',
+      tracking_id: '',
       amount_paid: '',
       payment_date: '',
-      receipt_number: '',
-      remarks: '',
+      annual_rental_value: '',
+      property_type: '',
       document_url: '',
     });
     setFileUpload(null);
@@ -148,15 +148,15 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
         .update({
           property_name: formData.property_name,
           property_address: formData.property_address,
-          property_id: formData.property_id,
+          property_uid: formData.property_uid,
           authority_name: formData.authority_name,
           financial_year: formData.financial_year,
-          due_date: formData.due_date,
-          amount_paid: Number(formData.amount_paid),
+          tracking_id: formData.tracking_id,
+          amount_paid: formData.amount_paid || null,
           payment_date: formData.payment_date || null,
-          receipt_number: formData.receipt_number || null,
+          annual_rental_value: formData.annual_rental_value || null,
           document_url: documentUrl || null,
-          remarks: formData.remarks || null,
+          property_type: formData.property_type || null,
         })
         .eq('id', formData.id);
 
@@ -227,20 +227,55 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
             onSubmit={handleSubmit}
             className="space-y-6"
           >
-
-            {/* Basic Information */}
             <div>
               <h3 className="text-sm font-semibold uppercase border-b pb-2 text-gray-700">
-                Basic Information
+                Property Tax Details
               </h3>
 
               <div className="grid md:grid-cols-2 gap-4 mt-4">
+                {/* 1. TRACKING ID */}
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Tracking ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.tracking_id}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        tracking_id: e.target.value,
+                      })
+                    }
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
 
+                {/* 2. PROPERTY UID */}
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Property UID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.property_uid}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        property_uid: e.target.value,
+                      })
+                    }
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* 3. PROPERTY NAME */}
                 <div>
                   <label className="block text-sm font-semibold mb-2">
                     Property Name *
                   </label>
-
                   <input
                     type="text"
                     required
@@ -255,11 +290,11 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
                   />
                 </div>
 
+                {/* 4. PROPERTY ADDRESS */}
                 <div>
                   <label className="block text-sm font-semibold mb-2">
                     Property Address *
                   </label>
-
                   <input
                     type="text"
                     required
@@ -274,30 +309,30 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
                   />
                 </div>
 
-                <div>
+                {/* 5. PROPERTY TYPE */}
+                <div className="md:col-span-2">
                   <label className="block text-sm font-semibold mb-2">
-                    Property ID *
+                    Property Type
                   </label>
-
-                  <input
-                    type="text"
-                    required
-                    value={formData.property_id}
+                  <textarea
+                    rows={3}
+                    value={formData.property_type}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        property_id: e.target.value,
+                        property_type: e.target.value,
                       })
                     }
                     className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Enter Property Type..."
                   />
                 </div>
 
+                {/* 6. AUTHORITY NAME */}
                 <div>
                   <label className="block text-sm font-semibold mb-2">
                     Authority Name *
                   </label>
-
                   <input
                     type="text"
                     required
@@ -312,11 +347,11 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
                   />
                 </div>
 
-                <div className="md:col-span-2">
+                {/* 7. FINANCIAL YEAR */}
+                <div>
                   <label className="block text-sm font-semibold mb-2">
                     Financial Year *
                   </label>
-
                   <input
                     type="text"
                     required
@@ -331,41 +366,30 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
                     className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
-              </div>
-            </div>
 
-            {/* Tax Details */}
-            <div>
-              <h3 className="text-sm font-semibold uppercase border-b pb-2 text-gray-700">
-                Tax Details
-              </h3>
-
-              <div className="grid md:grid-cols-2 gap-4 mt-4">
-
+                {/* 8. ANNUAL RENTAL VALUE */}
                 <div>
                   <label className="block text-sm font-semibold mb-2">
-                    Due Date *
+                    Annual Rental Value
                   </label>
-
                   <input
-                    type="date"
-                    required
-                    value={formData.due_date}
+                    type="text"
+                    value={formData.annual_rental_value}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        due_date: e.target.value,
+                        annual_rental_value: e.target.value,
                       })
                     }
                     className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
 
+                {/* 9. AMOUNT PAID */}
                 <div>
                   <label className="block text-sm font-semibold mb-2">
                     Amount Paid *
                   </label>
-
                   <input
                     type="number"
                     required
@@ -380,11 +404,11 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
                   />
                 </div>
 
+                {/* 10. PAYMENT DATE */}
                 <div>
                   <label className="block text-sm font-semibold mb-2">
                     Payment Date
                   </label>
-
                   <input
                     type="date"
                     value={formData.payment_date}
@@ -398,64 +422,17 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold mb-2">
-                    Receipt Number
-                  </label>
-
-                  <input
-                    type="text"
-                    value={formData.receipt_number}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        receipt_number: e.target.value,
-                      })
-                    }
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                </div>
-
+                {/* 11. DOCUMENT */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold mb-2">
-                    Remarks
-                  </label>
-
-                  <textarea
-                    rows={3}
-                    value={formData.remarks}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        remarks: e.target.value,
-                      })
-                    }
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Additional remarks..."
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Document Upload */}
-            <div>
-              <h3 className="text-sm font-semibold uppercase border-b pb-2 text-gray-700">
-                Document
-              </h3>
-
-              <div className="grid md:grid-cols-1 gap-4 mt-4">
-                <div>
                   <label className="block text-sm font-semibold mb-2">
                     Upload New Document (Optional)
                   </label>
-
                   <input
                     type="file"
                     onChange={handleFileChange}
                     className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                   />
-
                   {fileName && (
                     <div className="mt-2 text-sm text-green-600 font-medium">
                       {fileName}
@@ -464,7 +441,6 @@ const EditPropertyTax: React.FC<EditPropertyTaxProps> = ({
                 </div>
               </div>
             </div>
-
           </form>
         </div>
 
