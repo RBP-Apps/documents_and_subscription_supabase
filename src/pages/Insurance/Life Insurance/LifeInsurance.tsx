@@ -1,21 +1,36 @@
-// PropertyTax/PropertyTax.tsx
 import { useState, useEffect, useRef } from 'react';
 import {
   Plus,
   Search,
+  Shield,
   Edit,
   Trash2,
   FileText,
-  Building2,
   ChevronDown,
   X,
   Check,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import supabase from '../../utils/supabase';
-import useHeaderStore from '../../store/headerStore';
-import AddPropertyTax from './AddPropertyTax.tsx';
-import EditPropertyTax from './EditPropertyTax.tsx';
+import supabase from '../../../utils/supabase';
+import useHeaderStore from '../../../store/headerStore';
+import AddLifeInsurance from './AddLifeInsurance';
+import EditLifeInsurance from './EditLifeInsurance';
+
+interface LifeInsurance {
+  id: number;
+  serial_no: string;
+  company_name: string;
+  plan_name: string;
+  policy_holder: string;
+  policy_no: string;
+  start_date: string;
+  end_date: string;
+  premium_paid: number;
+  insurance_agent: string;
+  contact_details: string;
+  document_url: string;
+  created_at: string;
+}
 
 interface SearchableDropdownProps {
   options: string[];
@@ -155,66 +170,44 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   );
 };
 
-interface PropertyTax {
-  id: string;
-  serial_no: string;
-  property_name: string;
-  property_address: string;
-  property_uid: string;
-  authority_name: string;
-  financial_year: string;
-  tracking_id: string;
-  amount_paid: string;
-  payment_date: string;
-  annual_rental_value: string;
-  document_url: string;
-  property_type: string;
-  created_at: string;
-}
-
-const PropertyTax = () => {
+const LifeInsurancePage = () => {
   const { setTitle } = useHeaderStore();
 
-  const [data, setData] = useState<PropertyTax[]>([]);
+  const [data, setData] = useState<LifeInsurance[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
-  // const [filterAuthority, setFilterAuthority] = useState('');
+  const [filterCompany, setFilterCompany] = useState('');
+  const [filterHolder, setFilterHolder] = useState('');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedTax, setSelectedTax] = useState<PropertyTax | null>(null);
-
-  const [filterType, setFilterType] = useState('all');
-  const [propertyFilter, setPropertyFilter] = useState('');
-  const [financialYearFilter, setFinancialYearFilter] = useState('');
+  const [selectedInsurance, setSelectedInsurance] = useState<LifeInsurance | null>(null);
 
   useEffect(() => {
-    setTitle('Property Tax');
-    fetchPropertyTax();
+    setTitle('Life Insurance');
+    fetchLifeInsurance();
   }, []);
 
-  const fetchPropertyTax = async () => {
+  const fetchLifeInsurance = async () => {
     try {
       setLoading(true);
-
       const { data, error } = await supabase
-        .from('property_tax')
+        .from('life_insurance')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('id', { ascending: false });
 
       if (error) throw error;
-
       setData(data || []);
     } catch (error) {
       console.error(error);
-      toast.error('Failed to load property tax records');
+      toast.error('Failed to load life insurance records');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     const confirmDelete = window.confirm(
       'Are you sure you want to delete this record?'
     );
@@ -223,77 +216,69 @@ const PropertyTax = () => {
 
     try {
       const { error } = await supabase
-        .from('property_tax')
+        .from('life_insurance')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
 
       toast.success('Deleted Successfully');
-      fetchPropertyTax();
+      fetchLifeInsurance();
     } catch (error) {
       console.error(error);
       toast.error('Delete failed');
     }
   };
 
-  const handleViewDocument = (item: PropertyTax) => {
-    const documentLink = item.document_url;
-
-    if (documentLink) {
-      window.open(documentLink, '_blank');
+  const handleViewFile = (item: LifeInsurance) => {
+    const fileLink = item.document_url;
+    if (fileLink) {
+      window.open(fileLink, '_blank');
     } else {
       toast.error('No document available');
     }
   };
 
-  const handleEdit = (item: PropertyTax) => {
-    setSelectedTax(item);
+  const handleEdit = (item: LifeInsurance) => {
+    setSelectedInsurance(item);
     setIsEditModalOpen(true);
   };
 
   const filteredData = data.filter((item) => {
     const matchesSearch =
-      item.property_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.property_uid?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.authority_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.plan_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.policy_holder?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.policy_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.insurance_agent?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesProperty = propertyFilter
-      ? item.property_name === propertyFilter
-      : true;
+    const matchesCompany = filterCompany ? item.company_name === filterCompany : true;
+    const matchesHolder = filterHolder ? item.policy_holder === filterHolder : true;
 
-    const matchesYear = financialYearFilter
-      ? item.financial_year === financialYearFilter
-      : true;
-
-    return matchesSearch && matchesProperty && matchesYear;
+    return matchesSearch && matchesCompany && matchesHolder;
   });
 
   const formatDate = (date: string) => {
     if (!date) return '-';
-    const parsed = Date.parse(date);
-    if (isNaN(parsed) || date.length < 8) return date;
     return new Date(date).toLocaleDateString('en-IN');
   };
 
-  const formatAmount = (amount: string | number) => {
+  const formatAmount = (amount: number) => {
     if (!amount) return '₹0';
-    const num = typeof amount === 'number' ? amount : Number(amount);
-    if (isNaN(num)) return amount.toString();
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0,
-    }).format(num);
+    }).format(amount);
   };
 
-  const authorities = [
-    ...new Set(
-      data
-        .map((item) => item.authority_name)
-        .filter(Boolean)
-    ),
-  ];
+  const companies = Array.from(
+    new Set(data.map((item) => item.company_name).filter(Boolean))
+  ).sort();
+
+  const holders = Array.from(
+    new Set(data.map((item) => item.policy_holder).filter(Boolean))
+  ).sort();
 
   if (loading) {
     return (
@@ -306,18 +291,17 @@ const PropertyTax = () => {
   return (
     <>
       <div className="space-y-4">
-
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Building2 className="text-indigo-600" size={24} />
-                  Property Tax
+                  <Shield className="text-indigo-600" size={24} />
+                  Life Insurance
                 </h1>
                 <p className="text-gray-500 text-sm mt-1">
-                  Manage Property Tax Records
+                  Manage all life insurance records
                 </p>
               </div>
 
@@ -326,7 +310,7 @@ const PropertyTax = () => {
                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm hover:shadow-md"
               >
                 <Plus size={18} />
-                Add New Property Tax
+                Add New Life Insurance
               </button>
             </div>
           </div>
@@ -342,10 +326,10 @@ const PropertyTax = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Search by company, plan, policy holder, policy no..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-10 py-2.5 w-full border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  className="pl-10 pr-10 py-2.5 w-full border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                 />
                 {searchTerm && (
                   <button
@@ -359,44 +343,32 @@ const PropertyTax = () => {
                 )}
               </div>
 
-              {/* Property Name */}
+              {/* Company Name */}
               <SearchableDropdown
-                value={propertyFilter}
-                onChange={setPropertyFilter}
-                placeholder="All Property Name"
-                searchPlaceholder="Search Property Name..."
-                options={Array.from(
-                  new Set(
-                    data
-                      .map((item) => item.property_name)
-                      .filter(Boolean)
-                  )
-                ).sort()}
+                value={filterCompany}
+                onChange={setFilterCompany}
+                placeholder="All Companies"
+                searchPlaceholder="Search Company..."
+                options={companies}
               />
 
-              {/* Financial Year */}
+              {/* Policy Holder */}
               <SearchableDropdown
-                value={financialYearFilter}
-                onChange={setFinancialYearFilter}
-                placeholder="All Financial Year"
-                searchPlaceholder="Search Financial Year..."
-                options={Array.from(
-                  new Set(
-                    data
-                      .map((item) => item.financial_year)
-                      .filter(Boolean)
-                  )
-                ).sort()}
+                value={filterHolder}
+                onChange={setFilterHolder}
+                placeholder="All Policy Holders"
+                searchPlaceholder="Search Policy Holder..."
+                options={holders}
               />
             </div>
 
-            {(searchTerm || propertyFilter || financialYearFilter) && (
+            {(searchTerm || filterCompany || filterHolder) && (
               <div className="flex justify-end pt-2 border-t border-gray-200/50">
                 <button
                   onClick={() => {
                     setSearchTerm('');
-                    setPropertyFilter('');
-                    setFinancialYearFilter('');
+                    setFilterCompany('');
+                    setFilterHolder('');
                   }}
                   className="text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors border border-red-100"
                 >
@@ -409,21 +381,19 @@ const PropertyTax = () => {
 
         {/* Desktop Table */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+          <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="sticky top-0 bg-gray-50 border-b border-gray-200 z-10">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr className="text-xs uppercase text-gray-600 font-semibold tracking-wider">
-                  <th className="px-6 py-4 text-left">SR NO</th>
-                  <th className="px-6 py-4 text-left">TRACKING ID</th>
-                  <th className="px-6 py-4 text-left">PROPERTY UID</th>
-                  <th className="px-6 py-4 text-left">PROPERTY NAME</th>
-                  <th className="px-6 py-4 text-left">PROPERTY ADDRESS</th>
-                  <th className="px-6 py-4 text-left">PROPERTY TYPE</th>
-                  <th className="px-6 py-4 text-left">AUTHORITY NAME</th>
-                  <th className="px-6 py-4 text-left">FINANCIAL YEAR</th>
-                  <th className="px-6 py-4 text-left">ANNUAL RENTAL VALUE</th>
-                  <th className="px-6 py-4 text-right">AMOUNT PAID</th>
-                  <th className="px-6 py-4 text-left">PAYMENT DATE</th>
+                  <th className="px-6 py-4 text-left">S.NO</th>
+                  <th className="px-6 py-4 text-left">COMPANY NAME</th>
+                  <th className="px-6 py-4 text-left">PLAN NAME</th>
+                  <th className="px-6 py-4 text-left">POLICY HOLDER</th>
+                  <th className="px-6 py-4 text-left">POLICY NO.</th>
+                  <th className="px-6 py-4 text-left">PERIOD</th>
+                  <th className="px-6 py-4 text-right">PREMIUM PAID</th>
+                  <th className="px-6 py-4 text-left">INSURANCE AGENT</th>
+                  <th className="px-6 py-4 text-left">CONTACT DETAILS</th>
                   <th className="px-6 py-4 text-center">DOCUMENT</th>
                   <th className="px-6 py-4 text-center">ACTION</th>
                 </tr>
@@ -432,45 +402,43 @@ const PropertyTax = () => {
               <tbody className="divide-y divide-gray-100">
                 {filteredData.map((item) => (
                   <tr key={item.id} className="hover:bg-indigo-50/30 transition">
-                    <td className="px-6 py-4">
-                      <span className="font-semibold text-indigo-600 whitespace-nowrap">
-                        {item.serial_no}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="font-semibold text-indigo-600">
+                        {item.serial_no || `LI-${String(item.id).padStart(3, '0')}`}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {formatDate(item.tracking_id)}
+                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                      {item.company_name}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.property_uid}
+                    <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
+                      {item.plan_name}
                     </td>
-                    <td className="px-6 py-4 font-medium text-gray-900">
-                      {item.property_name}
+                    <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">
+                      {item.policy_holder}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.property_address}
+                    <td className="px-6 py-4 text-gray-600 whitespace-nowrap font-mono text-sm">
+                      {item.policy_no}
+                    </td>
+                    <td className="px-6 py-4 text-xs text-gray-500 whitespace-nowrap">
+                      {formatDate(item.start_date)}
+                      <br />
+                      to
+                      <br />
+                      {formatDate(item.end_date)}
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap">
+                      {formatAmount(item.premium_paid)}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
+                      {item.insurance_agent}
                     </td>
                     <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
-                      {item.property_type || '-'}
+                      {item.contact_details || '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.authority_name}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.financial_year}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.annual_rental_value || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold text-gray-900">
-                      {formatAmount(item.amount_paid)}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.payment_date ? formatDate(item.payment_date) : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
                       {item.document_url ? (
                         <button
-                          onClick={() => handleViewDocument(item)}
+                          onClick={() => handleViewFile(item)}
                           className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition text-sm font-medium"
                         >
                           <FileText size={14} />
@@ -480,9 +448,8 @@ const PropertyTax = () => {
                         <span className="text-gray-400 text-sm">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex justify-center gap-2">
-
                         <button
                           onClick={() => handleEdit(item)}
                           className="p-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition"
@@ -504,10 +471,10 @@ const PropertyTax = () => {
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={13} className="text-center py-12 text-gray-500">
+                    <td colSpan={11} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
-                        <Building2 size={48} className="text-gray-300" />
-                        <p>No Property Tax Records Found</p>
+                        <Shield size={48} className="text-gray-300" />
+                        <p>No Life Insurance Records Found</p>
                       </div>
                     </td>
                   </tr>
@@ -518,23 +485,23 @@ const PropertyTax = () => {
         </div>
       </div>
 
-      <AddPropertyTax
+      <AddLifeInsurance
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSuccess={fetchPropertyTax}
+        onSuccess={fetchLifeInsurance}
       />
 
-      <EditPropertyTax
+      <EditLifeInsurance
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false);
-          setSelectedTax(null);
+          setSelectedInsurance(null);
         }}
-        onSuccess={fetchPropertyTax}
-        taxData={selectedTax}
+        onSuccess={fetchLifeInsurance}
+        insuranceData={selectedInsurance}
       />
     </>
   );
 };
 
-export default PropertyTax;
+export default LifeInsurancePage;

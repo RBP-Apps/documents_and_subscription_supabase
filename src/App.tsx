@@ -35,10 +35,19 @@ import AllBG from "./pages/bg/AllBG";
 // Insurance Pages
 import VehicleInsurance from "./pages/Insurance/vehicle/vehicle";
 import HealthInsurance from "./pages/Insurance/Health/Health";
-import GeneralInsurance from "./pages/Insurance/General/General";
+import LifeInsurance from "./pages/Insurance/Life Insurance/LifeInsurance";
+// General Insurance
+import Building from "./pages/Insurance/General/Building";
+import WorkManCompensation from "./pages/Insurance/General/WorkManCompensation";
+import CompanyStaff from "./pages/Insurance/General/CompanyStaff";
+import Construction from "./pages/Insurance/General/Construction";
+import AkashdeepComplex from "./pages/Insurance/General/AkashdeepComplex";
 
 // Property TAx
 import PropertyTax from "./pages/PropertyTax/PropertyTax";
+
+// email renewal
+import EmailRenewal from "./pages/Email Renewal/EmailRenewal";
 
 
 import MasterPage from "./pages/master/MasterPage";
@@ -98,12 +107,21 @@ function App() {
              <Route index element={<Navigate to="vehicle" replace />} />
              <Route path="vehicle" element={<VehicleInsurance />} />
              <Route path="health" element={<HealthInsurance />} />
-             <Route path="general" element={<GeneralInsurance />} />
+             <Route path="life" element={<LifeInsurance />} />
+             {/* General */}
+             <Route path="building" element={<Building />} />
+             <Route path="workmancompensation" element={<WorkManCompensation />} />
+             <Route path="companystaff" element={<CompanyStaff />} />
+             <Route path="construction" element={<Construction />} />
+             <Route path="akashdeepcomplex" element={<AkashdeepComplex />} />
           </Route>
 
           {/* Property Tax */}
          
          <Route path="propertytax" element={<PropertyTax />} />
+
+
+         <Route path="emailrenewal" element={<EmailRenewal />} />
 
           <Route path="master" element={<MasterPage />} />
           <Route path="resource-manager" element={<ResourceManager />} />

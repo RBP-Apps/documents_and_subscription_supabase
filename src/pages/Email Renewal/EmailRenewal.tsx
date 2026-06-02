@@ -1,21 +1,56 @@
-// PropertyTax/PropertyTax.tsx
 import { useState, useEffect, useRef } from 'react';
 import {
   Plus,
   Search,
+  FileText,
   Edit,
   Trash2,
-  FileText,
-  Building2,
   ChevronDown,
   X,
   Check,
+  MailWarning,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import supabase from '../../utils/supabase';
 import useHeaderStore from '../../store/headerStore';
-import AddPropertyTax from './AddPropertyTax.tsx';
-import EditPropertyTax from './EditPropertyTax.tsx';
+import AddEmailRenewal from './AddEmailRenewal';
+import EditEmailRenewal from './EditEmailRenewal';
+
+interface DetailRow {
+  id: number;
+  master_id: number;
+  sub_serial_no: number;
+  description: string;
+  domain_name: string;
+  start_date: string;
+  end_date: string;
+  quantity: number;
+  total_amount: number;
+}
+
+interface MasterRecord {
+  id: number;
+  serial_no: string;
+  invoice_no: string;
+  invoice_date: string;
+  service_provider: string;
+  remarks: string;
+  document_url: string;
+  created_at: string;
+  email_renewal_details: DetailRow[];
+}
+
+interface FlattenedRow {
+  id: number; // detail id
+  sub_serial_no: number;
+  description: string;
+  domain_name: string;
+  start_date: string;
+  end_date: string;
+  quantity: number;
+  total_amount: number;
+  master: MasterRecord;
+}
 
 interface SearchableDropdownProps {
   options: string[];
@@ -155,145 +190,152 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   );
 };
 
-interface PropertyTax {
-  id: string;
-  serial_no: string;
-  property_name: string;
-  property_address: string;
-  property_uid: string;
-  authority_name: string;
-  financial_year: string;
-  tracking_id: string;
-  amount_paid: string;
-  payment_date: string;
-  annual_rental_value: string;
-  document_url: string;
-  property_type: string;
-  created_at: string;
-}
-
-const PropertyTax = () => {
+const EmailRenewal = () => {
   const { setTitle } = useHeaderStore();
 
-  const [data, setData] = useState<PropertyTax[]>([]);
+  const [masters, setMasters] = useState<MasterRecord[]>([]);
+  const [flatData, setFlatData] = useState<FlattenedRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
-  // const [filterAuthority, setFilterAuthority] = useState('');
+  const [filterProvider, setFilterProvider] = useState('');
+  const [filterDomain, setFilterDomain] = useState('');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedTax, setSelectedTax] = useState<PropertyTax | null>(null);
-
-  const [filterType, setFilterType] = useState('all');
-  const [propertyFilter, setPropertyFilter] = useState('');
-  const [financialYearFilter, setFinancialYearFilter] = useState('');
+  const [selectedMaster, setSelectedMaster] = useState<MasterRecord | null>(null);
 
   useEffect(() => {
-    setTitle('Property Tax');
-    fetchPropertyTax();
+    setTitle('Email Renewal');
+    fetchEmailRenewals();
   }, []);
 
-  const fetchPropertyTax = async () => {
+  const fetchEmailRenewals = async () => {
     try {
       setLoading(true);
-
       const { data, error } = await supabase
-        .from('property_tax')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from('email_renewal_master')
+        .select(`
+          *,
+          email_renewal_details (*)
+        `)
+        .order('id', { ascending: false });
 
       if (error) throw error;
 
-      setData(data || []);
+      const masterRecords: MasterRecord[] = data || [];
+      setMasters(masterRecords);
+
+      // Flatten detail records for display in main table
+      const flattened: FlattenedRow[] = [];
+      masterRecords.forEach((master) => {
+        if (master.email_renewal_details && master.email_renewal_details.length > 0) {
+          // Sort details by sub_serial_no ascending
+          const sortedDetails = [...master.email_renewal_details].sort(
+            (a, b) => a.sub_serial_no - b.sub_serial_no
+          );
+          sortedDetails.forEach((detail) => {
+            flattened.push({
+              id: detail.id,
+              sub_serial_no: detail.sub_serial_no,
+              description: detail.description,
+              domain_name: detail.domain_name,
+              start_date: detail.start_date,
+              end_date: detail.end_date,
+              quantity: detail.quantity,
+              total_amount: detail.total_amount,
+              master: master,
+            });
+          });
+        }
+      });
+
+      setFlatData(flattened);
     } catch (error) {
       console.error(error);
-      toast.error('Failed to load property tax records');
+      toast.error('Failed to load email renewal records');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteMaster = async (masterId: number) => {
     const confirmDelete = window.confirm(
-      'Are you sure you want to delete this record?'
+      'Are you sure you want to delete this renewal entry? This will delete all its service details.'
     );
 
     if (!confirmDelete) return;
 
     try {
       const { error } = await supabase
-        .from('property_tax')
+        .from('email_renewal_master')
         .delete()
-        .eq('id', id);
+        .eq('id', masterId);
 
       if (error) throw error;
 
       toast.success('Deleted Successfully');
-      fetchPropertyTax();
+      fetchEmailRenewals();
     } catch (error) {
       console.error(error);
       toast.error('Delete failed');
     }
   };
 
-  const handleViewDocument = (item: PropertyTax) => {
-    const documentLink = item.document_url;
-
-    if (documentLink) {
-      window.open(documentLink, '_blank');
+  const handleViewFile = (item: MasterRecord) => {
+    const fileLink = item.document_url;
+    if (fileLink) {
+      window.open(fileLink, '_blank');
     } else {
       toast.error('No document available');
     }
   };
 
-  const handleEdit = (item: PropertyTax) => {
-    setSelectedTax(item);
+  const handleEdit = (master: MasterRecord) => {
+    setSelectedMaster(master);
     setIsEditModalOpen(true);
   };
 
-  const filteredData = data.filter((item) => {
+  const filteredData = flatData.filter((row) => {
     const matchesSearch =
-      item.property_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.property_uid?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.authority_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      row.master.serial_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      row.master.invoice_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      row.master.service_provider?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      row.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      row.domain_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesProperty = propertyFilter
-      ? item.property_name === propertyFilter
+    const matchesProvider = filterProvider
+      ? row.master.service_provider === filterProvider
       : true;
 
-    const matchesYear = financialYearFilter
-      ? item.financial_year === financialYearFilter
-      : true;
+    const matchesDomain = filterDomain ? row.domain_name === filterDomain : true;
 
-    return matchesSearch && matchesProperty && matchesYear;
+    return matchesSearch && matchesProvider && matchesDomain;
   });
 
   const formatDate = (date: string) => {
     if (!date) return '-';
-    const parsed = Date.parse(date);
-    if (isNaN(parsed) || date.length < 8) return date;
     return new Date(date).toLocaleDateString('en-IN');
   };
 
-  const formatAmount = (amount: string | number) => {
+  const formatAmount = (amount: number) => {
     if (!amount) return '₹0';
-    const num = typeof amount === 'number' ? amount : Number(amount);
-    if (isNaN(num)) return amount.toString();
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0,
-    }).format(num);
+    }).format(amount);
   };
 
-  const authorities = [
-    ...new Set(
-      data
-        .map((item) => item.authority_name)
-        .filter(Boolean)
-    ),
-  ];
+  // Get distinct service providers
+  const providers = Array.from(
+    new Set(masters.map((m) => m.service_provider).filter(Boolean))
+  ).sort();
+
+  // Get distinct domains
+  const domains = Array.from(
+    new Set(flatData.map((d) => d.domain_name).filter(Boolean))
+  ).sort();
 
   if (loading) {
     return (
@@ -306,35 +348,34 @@ const PropertyTax = () => {
   return (
     <>
       <div className="space-y-4">
-
-        {/* Header */}
+        {/* Header Panel */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Building2 className="text-indigo-600" size={24} />
-                  Property Tax
+                  <MailWarning className="text-indigo-600 animate-pulse" size={24} />
+                  Email & Expense Renewal Entry
                 </h1>
                 <p className="text-gray-500 text-sm mt-1">
-                  Manage Property Tax Records
+                  Manage domain subscriptions, hostings, and SSL certificate renewals
                 </p>
               </div>
 
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm hover:shadow-md"
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm hover:shadow-md animate-fade-in"
               >
                 <Plus size={18} />
-                Add New Property Tax
+                Add Renewal Entry
               </button>
             </div>
           </div>
 
-          {/* Search and Filter Section */}
+          {/* Filters */}
           <div className="p-6 bg-gray-50 rounded-b-xl space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Search */}
+              {/* Search input */}
               <div className="relative w-full">
                 <Search
                   size={18}
@@ -342,10 +383,10 @@ const PropertyTax = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Search by SR No, provider, domain, desc..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-10 py-2.5 w-full border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  className="pl-10 pr-10 py-2.5 w-full border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                 />
                 {searchTerm && (
                   <button
@@ -359,44 +400,32 @@ const PropertyTax = () => {
                 )}
               </div>
 
-              {/* Property Name */}
+              {/* Service Provider */}
               <SearchableDropdown
-                value={propertyFilter}
-                onChange={setPropertyFilter}
-                placeholder="All Property Name"
-                searchPlaceholder="Search Property Name..."
-                options={Array.from(
-                  new Set(
-                    data
-                      .map((item) => item.property_name)
-                      .filter(Boolean)
-                  )
-                ).sort()}
+                value={filterProvider}
+                onChange={setFilterProvider}
+                placeholder="All Providers"
+                searchPlaceholder="Search Provider..."
+                options={providers}
               />
 
-              {/* Financial Year */}
+              {/* Domain Name */}
               <SearchableDropdown
-                value={financialYearFilter}
-                onChange={setFinancialYearFilter}
-                placeholder="All Financial Year"
-                searchPlaceholder="Search Financial Year..."
-                options={Array.from(
-                  new Set(
-                    data
-                      .map((item) => item.financial_year)
-                      .filter(Boolean)
-                  )
-                ).sort()}
+                value={filterDomain}
+                onChange={setFilterDomain}
+                placeholder="All Domains"
+                searchPlaceholder="Search Domain..."
+                options={domains}
               />
             </div>
 
-            {(searchTerm || propertyFilter || financialYearFilter) && (
+            {(searchTerm || filterProvider || filterDomain) && (
               <div className="flex justify-end pt-2 border-t border-gray-200/50">
                 <button
                   onClick={() => {
                     setSearchTerm('');
-                    setPropertyFilter('');
-                    setFinancialYearFilter('');
+                    setFilterProvider('');
+                    setFilterDomain('');
                   }}
                   className="text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors border border-red-100"
                 >
@@ -407,95 +436,96 @@ const PropertyTax = () => {
           </div>
         </div>
 
-        {/* Desktop Table */}
+        {/* Desktop Table View */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+          <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="sticky top-0 bg-gray-50 border-b border-gray-200 z-10">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr className="text-xs uppercase text-gray-600 font-semibold tracking-wider">
-                  <th className="px-6 py-4 text-left">SR NO</th>
-                  <th className="px-6 py-4 text-left">TRACKING ID</th>
-                  <th className="px-6 py-4 text-left">PROPERTY UID</th>
-                  <th className="px-6 py-4 text-left">PROPERTY NAME</th>
-                  <th className="px-6 py-4 text-left">PROPERTY ADDRESS</th>
-                  <th className="px-6 py-4 text-left">PROPERTY TYPE</th>
-                  <th className="px-6 py-4 text-left">AUTHORITY NAME</th>
-                  <th className="px-6 py-4 text-left">FINANCIAL YEAR</th>
-                  <th className="px-6 py-4 text-left">ANNUAL RENTAL VALUE</th>
-                  <th className="px-6 py-4 text-right">AMOUNT PAID</th>
-                  <th className="px-6 py-4 text-left">PAYMENT DATE</th>
-                  <th className="px-6 py-4 text-center">DOCUMENT</th>
-                  <th className="px-6 py-4 text-center">ACTION</th>
+                  <th className="px-4 py-4 text-left">SR No</th>
+                  <th className="px-4 py-4 text-left">Sub SR No</th>
+                  <th className="px-4 py-4 text-left">Invoice No</th>
+                  <th className="px-4 py-4 text-left">Invoice Date</th>
+                  <th className="px-4 py-4 text-left">Service Provider</th>
+                  <th className="px-4 py-4 text-left">Description of Services</th>
+                  <th className="px-4 py-4 text-left">Domain Name</th>
+                  <th className="px-4 py-4 text-left">Subscription Start</th>
+                  <th className="px-4 py-4 text-left">Subscription End</th>
+                  <th className="px-4 py-4 text-center">Qty</th>
+                  <th className="px-4 py-4 text-right">Total Amount</th>
+                  <th className="px-4 py-4 text-left">Remarks</th>
+                  <th className="px-4 py-4 text-center">Document</th>
+                  <th className="px-4 py-4 text-center">Action</th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-gray-100">
-                {filteredData.map((item) => (
-                  <tr key={item.id} className="hover:bg-indigo-50/30 transition">
-                    <td className="px-6 py-4">
-                      <span className="font-semibold text-indigo-600 whitespace-nowrap">
-                        {item.serial_no}
-                      </span>
+              <tbody className="divide-y divide-gray-100 text-sm">
+                {filteredData.map((row) => (
+                  <tr key={row.id} className="hover:bg-indigo-50/30 transition">
+                    <td className="px-4 py-4 whitespace-nowrap font-semibold text-indigo-600">
+                      {row.master.serial_no}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {formatDate(item.tracking_id)}
+                    <td className="px-4 py-4 whitespace-nowrap text-gray-500 font-medium">
+                      {row.sub_serial_no}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.property_uid}
+                    <td className="px-4 py-4 whitespace-nowrap text-gray-900 font-medium">
+                      {row.master.invoice_no}
                     </td>
-                    <td className="px-6 py-4 font-medium text-gray-900">
-                      {item.property_name}
+                    <td className="px-4 py-4 whitespace-nowrap text-gray-600">
+                      {formatDate(row.master.invoice_date)}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.property_address}
+                    <td className="px-4 py-4 whitespace-nowrap text-gray-900 font-medium">
+                      {row.master.service_provider}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
-                      {item.property_type || '-'}
+                    <td className="px-4 py-4 text-gray-600">
+                      {row.description}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.authority_name}
+                    <td className="px-4 py-4 whitespace-nowrap text-gray-900 font-mono">
+                      {row.domain_name}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.financial_year}
+                    <td className="px-4 py-4 whitespace-nowrap text-gray-500 text-xs">
+                      {formatDate(row.start_date)}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.annual_rental_value || '-'}
+                    <td className="px-4 py-4 whitespace-nowrap text-gray-500 text-xs">
+                      {formatDate(row.end_date)}
                     </td>
-                    <td className="px-6 py-4 text-right font-bold text-gray-900">
-                      {formatAmount(item.amount_paid)}
+                    <td className="px-4 py-4 text-center text-gray-900 font-medium">
+                      {row.quantity}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.payment_date ? formatDate(item.payment_date) : '-'}
+                    <td className="px-4 py-4 text-right font-bold text-gray-900 whitespace-nowrap">
+                      {formatAmount(row.total_amount)}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      {item.document_url ? (
+                    <td className="px-4 py-4 text-gray-500 max-w-xs truncate" title={row.master.remarks}>
+                      {row.master.remarks || '-'}
+                    </td>
+                    <td className="px-4 py-4 text-center whitespace-nowrap">
+                      {row.master.document_url ? (
                         <button
-                          onClick={() => handleViewDocument(item)}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition text-sm font-medium"
+                          onClick={() => handleViewFile(row.master)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition text-xs font-semibold"
                         >
-                          <FileText size={14} />
+                          <FileText size={12} />
                           View
                         </button>
                       ) : (
-                        <span className="text-gray-400 text-sm">-</span>
+                        <span className="text-gray-400 text-xs">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-center gap-2">
-
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex justify-center gap-1.5">
                         <button
-                          onClick={() => handleEdit(item)}
-                          className="p-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition"
-                          title="Edit"
+                          onClick={() => handleEdit(row.master)}
+                          className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition"
+                          title="Edit Entire Entry"
                         >
-                          <Edit size={16} />
+                          <Edit size={14} />
                         </button>
                         <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition"
-                          title="Delete"
+                          onClick={() => handleDeleteMaster(row.master.id)}
+                          className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition"
+                          title="Delete Entire Entry"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -504,10 +534,10 @@ const PropertyTax = () => {
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={13} className="text-center py-12 text-gray-500">
+                    <td colSpan={14} className="text-center py-16 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
-                        <Building2 size={48} className="text-gray-300" />
-                        <p>No Property Tax Records Found</p>
+                        <MailWarning size={48} className="text-gray-300 animate-bounce" />
+                        <p className="font-medium text-gray-600">No Email Renewal Entries Found</p>
                       </div>
                     </td>
                   </tr>
@@ -518,23 +548,23 @@ const PropertyTax = () => {
         </div>
       </div>
 
-      <AddPropertyTax
+      <AddEmailRenewal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSuccess={fetchPropertyTax}
+        onSuccess={fetchEmailRenewals}
       />
 
-      <EditPropertyTax
+      <EditEmailRenewal
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false);
-          setSelectedTax(null);
+          setSelectedMaster(null);
         }}
-        onSuccess={fetchPropertyTax}
-        taxData={selectedTax}
+        onSuccess={fetchEmailRenewals}
+        masterData={selectedMaster}
       />
     </>
   );
 };
 
-export default PropertyTax;
+export default EmailRenewal;

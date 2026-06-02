@@ -143,16 +143,52 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
           icon: <Shield size={16} />,
         },
         {
-          label: "General Insurance",
-          path: "/Insurance/general",
+          label: "Life Insurance",
+          path: "/Insurance/life",
           icon: <Shield size={16} />,
         },
+       {
+  label: "General Insurance",
+  icon: <Shield size={16} />,
+  subItems: [
+    {
+      label: "Building",
+      path: "/Insurance/building",
+      icon: <Shield size={16} />,
+    },
+    {
+      label: "WorkMan Compensation",
+      path: "/Insurance/workmancompensation",
+      icon: <Shield size={16} />,
+    },
+    {
+      label: "Company Staff",
+      path: "/Insurance/companystaff",
+      icon: <Shield size={16} />,
+    },
+    {
+      label: "Construction",
+      path: "/Insurance/construction",
+      icon: <Shield size={16} />,
+    },
+    {
+      label: "Akashdeep Complex",
+      path: "/Insurance/akashdeepcomplex",
+      icon: <Shield size={16} />,
+    },
+  ],
+},
       ],
     },
 
     {
       label: "Property Tax",
       path: "/propertytax",
+      icon: <SettingsIcon size={20} />,
+    },
+    {
+      label: "Email Renewal",
+      path: "/emailrenewal",
       icon: <SettingsIcon size={20} />,
     },
     {
@@ -200,8 +236,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
     // Ensure we check for query params equality too if present
     const isActiveLink = item.path && (location.pathname + location.search) === item.path;
 
-    // Or generic active checking for parent folders highlighting (optional)
-    // const isParentActive = hasChildren && item.subItems?.some(s => s.path === location.pathname);
 
     if (hasChildren) {
       return (
