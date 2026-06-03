@@ -157,7 +157,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
       icon: <Shield size={16} />,
     },
     {
-      label: "WorkMan Compensation",
+      label: "Employee's Compensation",
       path: "/Insurance/workmancompensation",
       icon: <Shield size={16} />,
     },
@@ -174,6 +174,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
     {
       label: "Akashdeep Complex",
       path: "/Insurance/akashdeepcomplex",
+      icon: <Shield size={16} />,
+    },
+    {
+      label: "Fire Policy",
+      path: "/Insurance/firepolicy",
       icon: <Shield size={16} />,
     },
   ],

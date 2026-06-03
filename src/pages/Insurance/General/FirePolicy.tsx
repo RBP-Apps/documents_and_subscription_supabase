@@ -16,7 +16,7 @@ import { toast } from 'react-hot-toast';
 import supabase from '../../../utils/supabase';
 import useHeaderStore from '../../../store/headerStore';
 
-interface WorkmanCompensation {
+interface FirePolicy {
   id: number;
   serial_no: string;
   company_name: string;
@@ -26,7 +26,7 @@ interface WorkmanCompensation {
   start_date: string;
   end_date: string;
   final_premium_amt: number;
-  total_amt: number;
+  sum_to_be_insured: number;
   agent_name: string;
   contact_no: string;
   document_url: string;
@@ -171,10 +171,10 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   );
 };
 
-const WorkManCompensation = () => {
+const FirePolicyPage = () => {
   const { setTitle } = useHeaderStore();
 
-  const [data, setData] = useState<WorkmanCompensation[]>([]);
+  const [data, setData] = useState<FirePolicy[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -182,10 +182,10 @@ const WorkManCompensation = () => {
   const [filterHolderCompany, setFilterHolderCompany] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<WorkmanCompensation | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<FirePolicy | null>(null);
 
   useEffect(() => {
-    setTitle("Employee's Compensation");
+    setTitle('Fire Policy');
     fetchRecords();
   }, []);
 
@@ -193,7 +193,7 @@ const WorkManCompensation = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('employee_compensation')
+        .from('fire_policy')
         .select('*')
         .order('id', { ascending: false });
 
@@ -201,7 +201,7 @@ const WorkManCompensation = () => {
       setData(data || []);
     } catch (error) {
       console.error(error);
-      toast.error("Failed to load Employee's Compensation records");
+      toast.error('Failed to load Fire Policy records');
     } finally {
       setLoading(false);
     }
@@ -216,7 +216,7 @@ const WorkManCompensation = () => {
 
     try {
       const { error } = await supabase
-        .from('employee_compensation')
+        .from('fire_policy')
         .delete()
         .eq('id', id);
 
@@ -230,7 +230,7 @@ const WorkManCompensation = () => {
     }
   };
 
-  const handleViewFile = (item: WorkmanCompensation) => {
+  const handleViewFile = (item: FirePolicy) => {
     const fileLink = item.document_url;
     if (fileLink) {
       window.open(fileLink, '_blank');
@@ -239,7 +239,7 @@ const WorkManCompensation = () => {
     }
   };
 
-  const handleEdit = (item: WorkmanCompensation) => {
+  const handleEdit = (item: FirePolicy) => {
     setSelectedRecord(item);
     setIsModalOpen(true);
   };
@@ -303,10 +303,10 @@ const WorkManCompensation = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                   <Shield className="text-indigo-600" size={24} />
-                  Employee's Compensation
+                  Fire Policy
                 </h1>
                 <p className="text-gray-500 text-sm mt-1">
-                  Manage workmen's compensation insurance records
+                  Manage fire policy insurance records
                 </p>
               </div>
 
@@ -397,7 +397,7 @@ const WorkManCompensation = () => {
                   <th className="px-6 py-4 text-left">POLICY NAME</th>
                   <th className="px-6 py-4 text-left">PERIOD OF INSURANCE</th>
                   <th className="px-6 py-4 text-right">FINAL PREMIUM AMT</th>
-                  <th className="px-6 py-4 text-right">TOTAL AMT</th>
+                  <th className="px-6 py-4 text-right">SUM TO BE INSURED</th>
                   <th className="px-6 py-4 text-left">AGENT NAME</th>
                   <th className="px-6 py-4 text-left">CONTACT NO.</th>
                   <th className="px-6 py-4 text-center">DOCUMENT</th>
@@ -410,7 +410,7 @@ const WorkManCompensation = () => {
                   <tr key={item.id} className="hover:bg-indigo-50/30 transition">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-indigo-600 text-sm">
-                        {item.serial_no || `EC-${String(item.id).padStart(3, '0')}`}
+                        {item.serial_no || `FP-${String(item.id).padStart(3, '0')}`}
                       </span>
                     </td>
                     <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap text-sm">
@@ -436,7 +436,7 @@ const WorkManCompensation = () => {
                       {formatAmount(item.final_premium_amt)}
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap text-sm">
-                      {formatAmount(item.total_amt)}
+                      {formatAmount(item.sum_to_be_insured)}
                     </td>
                     <td className="px-6 py-4 text-gray-600 whitespace-nowrap text-sm">
                       {item.agent_name || '-'}
@@ -483,7 +483,7 @@ const WorkManCompensation = () => {
                     <td colSpan={12} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <Shield size={48} className="text-gray-300" />
-                        <p>No Employee's Compensation Records Found</p>
+                        <p>No Fire Policy Records Found</p>
                       </div>
                     </td>
                   </tr>
@@ -494,7 +494,7 @@ const WorkManCompensation = () => {
         </div>
       </div>
 
-      <CompensationModal
+      <FirePolicyModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
@@ -507,14 +507,14 @@ const WorkManCompensation = () => {
   );
 };
 
-interface CompensationModalProps {
+interface FirePolicyModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  selectedRecord: WorkmanCompensation | null;
+  selectedRecord: FirePolicy | null;
 }
 
-const CompensationModal: React.FC<CompensationModalProps> = ({
+const FirePolicyModal: React.FC<FirePolicyModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
@@ -528,7 +528,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
     start_date: '',
     end_date: '',
     final_premium_amt: '',
-    total_amt: '',
+    sum_to_be_insured: '',
     agent_name: '',
     contact_no: '',
   });
@@ -547,7 +547,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
         start_date: selectedRecord.start_date || '',
         end_date: selectedRecord.end_date || '',
         final_premium_amt: selectedRecord.final_premium_amt ? selectedRecord.final_premium_amt.toString() : '',
-        total_amt: selectedRecord.total_amt ? selectedRecord.total_amt.toString() : '',
+        sum_to_be_insured: selectedRecord.sum_to_be_insured ? selectedRecord.sum_to_be_insured.toString() : '',
         agent_name: selectedRecord.agent_name || '',
         contact_no: selectedRecord.contact_no || '',
       });
@@ -562,7 +562,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
         start_date: '',
         end_date: '',
         final_premium_amt: '',
-        total_amt: '',
+        sum_to_be_insured: '',
         agent_name: '',
         contact_no: '',
       });
@@ -597,7 +597,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
       // Upload File if selected
       if (fileUpload) {
         const cleanFileName = fileUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filePath = `general/employee completion/${Date.now()}_${cleanFileName}`;
+        const filePath = `general/fire_policy/${Date.now()}_${cleanFileName}`;
 
         const { data, error } = await supabase.storage
           .from('insurance')
@@ -618,7 +618,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
       if (selectedRecord) {
         // Edit Mode
         const { error: updateError } = await supabase
-          .from('employee_compensation')
+          .from('fire_policy')
           .update({
             company_name: formData.company_name,
             policy_holder_company_name: formData.policy_holder_company_name,
@@ -627,7 +627,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
             start_date: formData.start_date,
             end_date: formData.end_date,
             final_premium_amt: Number(formData.final_premium_amt),
-            total_amt: Number(formData.total_amt),
+            sum_to_be_insured: Number(formData.sum_to_be_insured),
             agent_name: formData.agent_name || null,
             contact_no: formData.contact_no || null,
             document_url: documentUrl || null,
@@ -639,7 +639,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
       } else {
         // Add Mode
         const { data: inserted, error: insertError } = await supabase
-          .from('employee_compensation')
+          .from('fire_policy')
           .insert([
             {
               company_name: formData.company_name,
@@ -649,7 +649,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
               start_date: formData.start_date,
               end_date: formData.end_date,
               final_premium_amt: Number(formData.final_premium_amt),
-              total_amt: Number(formData.total_amt),
+              sum_to_be_insured: Number(formData.sum_to_be_insured),
               agent_name: formData.agent_name || null,
               contact_no: formData.contact_no || null,
               document_url: documentUrl || null,
@@ -660,10 +660,10 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
 
         if (insertError) throw insertError;
 
-        const serialNo = `EC-${String(inserted.id).padStart(3, '0')}`;
+        const serialNo = `FP-${String(inserted.id).padStart(3, '0')}`;
 
         await supabase
-          .from('employee_compensation')
+          .from('fire_policy')
           .update({
             serial_no: serialNo,
           })
@@ -693,7 +693,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-800">
-                {selectedRecord ? "Edit Employee's Compensation" : "Add Employee's Compensation"}
+                {selectedRecord ? 'Edit Fire Policy' : 'Add Fire Policy'}
               </h2>
               <p className="text-xs text-gray-500">
                 {selectedRecord ? `Edit details for ${selectedRecord.serial_no}` : 'Fill insurance details'}
@@ -707,7 +707,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
 
         {/* Body */}
         <div className="max-h-[70vh] overflow-y-auto p-6">
-          <form id="compensation-form" onSubmit={handleSubmit} className="space-y-6">
+          <form id="fire-policy-form" onSubmit={handleSubmit} className="space-y-6">
             {/* Policy Info */}
             <div>
               <h3 className="text-sm font-semibold uppercase border-b pb-2 text-gray-700">Policy Information</h3>
@@ -742,7 +742,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
                     value={formData.policy_no}
                     onChange={(e) => setFormData({ ...formData, policy_no: e.target.value })}
                     className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm text-gray-700"
-                    placeholder="e.g. WCP12345678"
+                    placeholder="e.g. FPP12345678"
                   />
                 </div>
                 <div>
@@ -753,7 +753,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
                     value={formData.policy_name}
                     onChange={(e) => setFormData({ ...formData, policy_name: e.target.value })}
                     className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm text-gray-700"
-                    placeholder="e.g. Workmen's Compensation Policy"
+                    placeholder="e.g. Standard Fire and Special Perils Policy"
                   />
                 </div>
                 <div>
@@ -769,15 +769,15 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Total Amt. *</label>
+                  <label className="block text-sm font-semibold mb-2">Sum To Be Insured *</label>
                   <input
                     type="number"
                     step="0.01"
                     required
-                    value={formData.total_amt}
-                    onChange={(e) => setFormData({ ...formData, total_amt: e.target.value })}
+                    value={formData.sum_to_be_insured}
+                    onChange={(e) => setFormData({ ...formData, sum_to_be_insured: e.target.value })}
                     className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm text-gray-700"
-                    placeholder="e.g. 29500"
+                    placeholder="e.g. 5000000"
                   />
                 </div>
               </div>
@@ -870,7 +870,7 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
             Cancel
           </button>
           <button
-            form="compensation-form"
+            form="fire-policy-form"
             type="submit"
             disabled={isSubmitting}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition text-sm"
@@ -893,4 +893,4 @@ const CompensationModal: React.FC<CompensationModalProps> = ({
   );
 };
 
-export default WorkManCompensation;
+export default FirePolicyPage;

@@ -42,6 +42,7 @@ import WorkManCompensation from "./pages/Insurance/General/WorkManCompensation";
 import CompanyStaff from "./pages/Insurance/General/CompanyStaff";
 import Construction from "./pages/Insurance/General/Construction";
 import AkashdeepComplex from "./pages/Insurance/General/AkashdeepComplex";
+import FirePolicy from "./pages/Insurance/General/FirePolicy";
 
 // Property TAx
 import PropertyTax from "./pages/PropertyTax/PropertyTax";
@@ -114,6 +115,7 @@ function App() {
              <Route path="companystaff" element={<CompanyStaff />} />
              <Route path="construction" element={<Construction />} />
              <Route path="akashdeepcomplex" element={<AkashdeepComplex />} />
+             <Route path="firepolicy" element={<FirePolicy />} />
           </Route>
 
           {/* Property Tax */}
