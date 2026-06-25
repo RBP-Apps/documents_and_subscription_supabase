@@ -8,6 +8,7 @@ import { Toaster } from "react-hot-toast";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Summary from "./pages/Summary";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Settings from "./pages/Settings";
@@ -36,6 +37,9 @@ import AllBG from "./pages/bg/AllBG";
 import VehicleInsurance from "./pages/Insurance/vehicle/vehicle";
 import HealthInsurance from "./pages/Insurance/Health/Health";
 import LifeInsurance from "./pages/Insurance/Life Insurance/LifeInsurance";
+import VehicleRenewal from "./pages/Insurance/vehicle/VehicleRenewal";
+import HealthRenewal from "./pages/Insurance/Health/HealthRenewal";
+import LifeRenewal from "./pages/Insurance/Life Insurance/LifeRenewal";
 // General Insurance
 import Building from "./pages/Insurance/General/Building";
 import WorkManCompensation from "./pages/Insurance/General/WorkManCompensation";
@@ -49,6 +53,7 @@ import PropertyTax from "./pages/PropertyTax/PropertyTax";
 
 // email renewal
 import EmailRenewal from "./pages/Email Renewal/EmailRenewal";
+import EmailRenewalRenewal from "./pages/Email Renewal/EmailRenewalRenewal";
 
 
 import MasterPage from "./pages/master/MasterPage";
@@ -70,6 +75,7 @@ function App() {
           }
         >
           <Route index element={<Dashboard />} />
+          <Route path="summary" element={<Summary />} />
           
           {/* Document Routes */}
           <Route path="document">
@@ -109,6 +115,9 @@ function App() {
              <Route path="vehicle" element={<VehicleInsurance />} />
              <Route path="health" element={<HealthInsurance />} />
              <Route path="life" element={<LifeInsurance />} />
+             <Route path="vehicle-renewal" element={<VehicleRenewal />} />
+             <Route path="health-renewal" element={<HealthRenewal />} />
+             <Route path="life-renewal" element={<LifeRenewal />} />
              {/* General */}
              <Route path="building" element={<Building />} />
              <Route path="workmancompensation" element={<WorkManCompensation />} />
@@ -123,7 +132,8 @@ function App() {
          <Route path="propertytax" element={<PropertyTax />} />
 
 
-         <Route path="emailrenewal" element={<EmailRenewal />} />
+          <Route path="emailrenewal" element={<EmailRenewal />} />
+          <Route path="email-renewal/renewal" element={<EmailRenewalRenewal />} />
 
           <Route path="master" element={<MasterPage />} />
           <Route path="resource-manager" element={<ResourceManager />} />

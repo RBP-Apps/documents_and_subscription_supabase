@@ -17,6 +17,11 @@ interface ServiceDetail {
   end_date: string;
   quantity: string;
   total_amount: string;
+  need_renewal: boolean;
+  renewal_date: string;
+  concern_person_name: string;
+  concern_person_mobile: string;
+  concern_person_department: string;
 }
 
 const AddEmailRenewal: React.FC<AddEmailRenewalProps> = ({ isOpen, onClose, onSuccess }) => {
@@ -34,6 +39,11 @@ const AddEmailRenewal: React.FC<AddEmailRenewalProps> = ({ isOpen, onClose, onSu
       end_date: '',
       quantity: '',
       total_amount: '',
+      need_renewal: false,
+      renewal_date: '',
+      concern_person_name: '',
+      concern_person_mobile: '',
+      concern_person_department: '',
     },
   ]);
 
@@ -55,6 +65,11 @@ const AddEmailRenewal: React.FC<AddEmailRenewalProps> = ({ isOpen, onClose, onSu
         end_date: '',
         quantity: '',
         total_amount: '',
+        need_renewal: false,
+        renewal_date: '',
+        concern_person_name: '',
+        concern_person_mobile: '',
+        concern_person_department: '',
       },
     ]);
   };
@@ -76,7 +91,7 @@ const AddEmailRenewal: React.FC<AddEmailRenewalProps> = ({ isOpen, onClose, onSu
   const handleServiceChange = (
     index: number,
     field: keyof ServiceDetail,
-    value: string
+    value: any
   ) => {
     const updatedServices = [...services];
     updatedServices[index] = {
@@ -113,6 +128,11 @@ const AddEmailRenewal: React.FC<AddEmailRenewalProps> = ({ isOpen, onClose, onSu
         end_date: '',
         quantity: '',
         total_amount: '',
+        need_renewal: false,
+        renewal_date: '',
+        concern_person_name: '',
+        concern_person_mobile: '',
+        concern_person_department: '',
       },
     ]);
     setFileUpload(null);
@@ -125,6 +145,11 @@ const AddEmailRenewal: React.FC<AddEmailRenewalProps> = ({ isOpen, onClose, onSu
     // Validations
     if (services.some((s) => !s.description || !s.domain_name || !s.start_date || !s.end_date || !s.quantity || !s.total_amount)) {
       toast.error('Please fill all required fields in the service rows');
+      return;
+    }
+
+    if (services.some((s) => s.need_renewal && !s.renewal_date)) {
+      toast.error('Please select a renewal date for services that need renewal');
       return;
     }
 
@@ -191,6 +216,11 @@ const AddEmailRenewal: React.FC<AddEmailRenewalProps> = ({ isOpen, onClose, onSu
         end_date: s.end_date,
         quantity: Number(s.quantity),
         total_amount: Number(s.total_amount),
+        need_renewal: s.need_renewal,
+        renewal_date: s.need_renewal && s.renewal_date ? s.renewal_date : null,
+        concern_person_name: s.concern_person_name || null,
+        concern_person_mobile: s.concern_person_mobile || null,
+        concern_person_department: s.concern_person_department || null,
       }));
 
       const { error: detailsError } = await supabase
@@ -405,6 +435,73 @@ const AddEmailRenewal: React.FC<AddEmailRenewalProps> = ({ isOpen, onClose, onSu
                           }
                           className="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-gray-800"
                           placeholder="e.g. 1000"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Renewal and date option inside card */}
+                    <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-4 items-center">
+                      <div className="flex gap-3 items-center p-2 rounded-lg border border-gray-100 bg-gray-50/50 min-w-[280px]">
+                        <label className="flex gap-2 items-center cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            checked={service.need_renewal}
+                            onChange={(e) =>
+                              handleServiceChange(index, 'need_renewal', e.target.checked)
+                            }
+                          />
+                          <span className="text-xs font-semibold text-gray-700">Need Renewal</span>
+                        </label>
+
+                        {service.need_renewal && (
+                          <div className="flex-1">
+                            <input
+                              type="date"
+                              required={service.need_renewal}
+                              className="w-full p-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium"
+                              value={service.renewal_date}
+                              onChange={(e) =>
+                                handleServiceChange(index, 'renewal_date', e.target.value)
+                              }
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-[200px]">
+                        <input
+                          type="text"
+                          placeholder="Concern Person Name"
+                          className="w-full p-2 border rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                          value={service.concern_person_name}
+                          onChange={(e) =>
+                            handleServiceChange(index, 'concern_person_name', e.target.value)
+                          }
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-[150px]">
+                        <input
+                          type="text"
+                          placeholder="Concern Mobile"
+                          className="w-full p-2 border rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                          value={service.concern_person_mobile}
+                          onChange={(e) =>
+                            handleServiceChange(index, 'concern_person_mobile', e.target.value)
+                          }
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-[150px]">
+                        <input
+                          type="text"
+                          placeholder="Concern Department"
+                          className="w-full p-2 border rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                          value={service.concern_person_department}
+                          onChange={(e) =>
+                            handleServiceChange(index, 'concern_person_department', e.target.value)
+                          }
                         />
                       </div>
                     </div>

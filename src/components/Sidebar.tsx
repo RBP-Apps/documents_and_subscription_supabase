@@ -18,7 +18,8 @@ import {
   ChevronRight,
 
   Settings as SettingsIcon,
-  CreditCard
+  CreditCard,
+  Mail
 } from "lucide-react";
 import useAuthStore from "../store/authStore";
 
@@ -94,6 +95,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
       icon: <LayoutDashboard size={20} />,
     },
     {
+      label: "Summary",
+      path: "/summary",
+      icon: <FileText size={20} />,
+    },
+    {
       label: "Resource Manager",
       icon: <FileText size={20} />,
       subItems: [
@@ -104,6 +110,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
           subItems: [
             { label: "Document Renewal", path: "/document/renewal", icon: <FileText size={16} /> },
             { label: "Subscription Renewal", path: "/subscription/renewal", icon: <CreditCard size={16} /> },
+            { label: "Vehicle Renewal", path: "/Insurance/vehicle-renewal", icon: <Shield size={16} /> },
+            { label: "Health Renewal", path: "/Insurance/health-renewal", icon: <Shield size={16} /> },
+            { label: "Life Renewal", path: "/Insurance/life-renewal", icon: <Shield size={16} /> },
+            { label: "Email Renewal", path: "/email-renewal/renewal", icon: <Mail size={16} /> },
           ]
         },
         { label: "Document Shared", path: "/document/shared", icon: <Share2 size={16} /> },
@@ -120,82 +130,82 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
         { label: "Collect NOC", path: "/loan/noc", icon: <ShieldCheck size={16} /> },
       ]
     },
-    {
-      label: "BG",
-      icon: <Banknote size={20} />,
-      subItems: [
-        { label: "All BG", path: "/bg/all", icon: <List size={16} /> },
-      ]
-    },
+    // {
+    //   label: "BG",
+    //   icon: <Banknote size={20} />,
+    //   subItems: [
+    //     { label: "All BG", path: "/bg/all", icon: <List size={16} /> },
+    //   ]
+    // },
 
-    {
-      label: "Insurance",
-      icon: <Shield size={20} />,
-      subItems: [
-        {
-          label: "Vehicle Insurance",
-          path: "/Insurance/vehicle",
-          icon: <Shield size={16} />,
-        },
-        {
-          label: "Health Insurance",
-          path: "/Insurance/health",
-          icon: <Shield size={16} />,
-        },
-        {
-          label: "Life Insurance",
-          path: "/Insurance/life",
-          icon: <Shield size={16} />,
-        },
-       {
-  label: "General Insurance",
-  icon: <Shield size={16} />,
-  subItems: [
-    {
-      label: "Building",
-      path: "/Insurance/building",
-      icon: <Shield size={16} />,
-    },
-    {
-      label: "Employee's Compensation",
-      path: "/Insurance/workmancompensation",
-      icon: <Shield size={16} />,
-    },
-    {
-      label: "Company Staff",
-      path: "/Insurance/companystaff",
-      icon: <Shield size={16} />,
-    },
-    {
-      label: "Construction",
-      path: "/Insurance/construction",
-      icon: <Shield size={16} />,
-    },
-    {
-      label: "Akashdeep Complex",
-      path: "/Insurance/akashdeepcomplex",
-      icon: <Shield size={16} />,
-    },
-    {
-      label: "Fire Policy",
-      path: "/Insurance/firepolicy",
-      icon: <Shield size={16} />,
-    },
-  ],
-},
-      ],
-    },
+//     {
+//       label: "Insurance",
+//       icon: <Shield size={20} />,
+//       subItems: [
+//         {
+//           label: "Vehicle Insurance",
+//           path: "/Insurance/vehicle",
+//           icon: <Shield size={16} />,
+//         },
+//         {
+//           label: "Health Insurance",
+//           path: "/Insurance/health",
+//           icon: <Shield size={16} />,
+//         },
+//         {
+//           label: "Life Insurance",
+//           path: "/Insurance/life",
+//           icon: <Shield size={16} />,
+//         },
+//        {
+//   label: "General Insurance",
+//   icon: <Shield size={16} />,
+//   subItems: [
+//     {
+//       label: "Building",
+//       path: "/Insurance/building",
+//       icon: <Shield size={16} />,
+//     },
+//     {
+//       label: "Employee's Compensation",
+//       path: "/Insurance/workmancompensation",
+//       icon: <Shield size={16} />,
+//     },
+//     {
+//       label: "Company Staff",
+//       path: "/Insurance/companystaff",
+//       icon: <Shield size={16} />,
+//     },
+//     {
+//       label: "Construction",
+//       path: "/Insurance/construction",
+//       icon: <Shield size={16} />,
+//     },
+//     {
+//       label: "Akashdeep Complex",
+//       path: "/Insurance/akashdeepcomplex",
+//       icon: <Shield size={16} />,
+//     },
+//     {
+//       label: "Fire Policy",
+//       path: "/Insurance/firepolicy",
+//       icon: <Shield size={16} />,
+//     },
+//   ],
+// },
+//       ],
+//     },
 
-    {
-      label: "Property Tax",
-      path: "/propertytax",
-      icon: <SettingsIcon size={20} />,
-    },
-    {
-      label: "Email Renewal",
-      path: "/emailrenewal",
-      icon: <SettingsIcon size={20} />,
-    },
+    // {
+    //   label: "Property Tax",
+    //   path: "/propertytax",
+    //   icon: <SettingsIcon size={20} />,
+    // },
+    // {
+    //   label: "Email Renewal",
+    //   path: "/emailrenewal",
+    //   icon: <SettingsIcon size={20} />,
+    // },
     {
       label: "Settings",
       path: "/settings",

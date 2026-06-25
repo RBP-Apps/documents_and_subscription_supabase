@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { X, Save, Loader2, Shield } from 'lucide-react';
+import { X, Save, Loader2, Shield, Plus, Trash2, Upload } from 'lucide-react';
 import supabase from '../../../utils/supabase';
 
 interface AddLifeInsuranceProps {
@@ -9,40 +9,30 @@ interface AddLifeInsuranceProps {
   onSuccess?: () => void;
 }
 
+interface LifeInsuranceEntry {
+  id: string;
+  company_name: string;
+  plan_name: string;
+  policy_holder: string;
+  policy_no: string;
+  start_date: string;
+  end_date: string;
+  premium_paid: string;
+  insurance_agent: string;
+  contact_details: string;
+  need_renewal: boolean;
+  renewal_date: string;
+  file: File | null;
+  fileName: string;
+  concern_person_name: string;
+  concern_person_mobile: string;
+  concern_person_department: string;
+}
+
 const AddLifeInsurance: React.FC<AddLifeInsuranceProps> = ({ isOpen, onClose, onSuccess }) => {
-  const [formData, setFormData] = useState({
-    company_name: '',
-    plan_name: '',
-    policy_holder: '',
-    policy_no: '',
-    start_date: '',
-    end_date: '',
-    premium_paid: '',
-    insurance_agent: '',
-    contact_details: '',
-  });
-
-  const [fileUpload, setFileUpload] = useState<File | null>(null);
-  const [fileName, setFileName] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  if (!isOpen) return null;
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error('File size must be less than 50MB');
-      return;
-    }
-
-    setFileUpload(file);
-    setFileName(file.name);
-  };
-
-  const resetForm = () => {
-    setFormData({
+  const [entries, setEntries] = useState<LifeInsuranceEntry[]>([
+    {
+      id: Math.random().toString(),
       company_name: '',
       plan_name: '',
       policy_holder: '',
@@ -52,71 +42,208 @@ const AddLifeInsurance: React.FC<AddLifeInsuranceProps> = ({ isOpen, onClose, on
       premium_paid: '',
       insurance_agent: '',
       contact_details: '',
-    });
-    setFileUpload(null);
-    setFileName('');
+      need_renewal: false,
+      renewal_date: '',
+      file: null,
+      fileName: '',
+      concern_person_name: '',
+      concern_person_mobile: '',
+      concern_person_department: '',
+    },
+  ]);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleChange = (id: string, field: keyof LifeInsuranceEntry, value: any) => {
+    setEntries((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    );
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleFileChange = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error('File size must be less than 50MB');
+        e.target.value = '';
+        return;
+      }
+      setEntries((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                file: file,
+                fileName: file.name,
+              }
+            : item
+        )
+      );
+    }
+  };
+
+  const addEntry = () => {
+    if (entries.length >= 10) {
+      toast.error('You can add maximum 10 life insurance records at a time.');
+      return;
+    }
+
+    const lastEntry = entries[entries.length - 1];
+
+    const newEntry: LifeInsuranceEntry = {
+      id: Math.random().toString(),
+      company_name: lastEntry.company_name || '',
+      plan_name: lastEntry.plan_name || '',
+      policy_holder: lastEntry.policy_holder || '',
+      policy_no: '', // leave empty for user to fill
+      start_date: lastEntry.start_date || '',
+      end_date: lastEntry.end_date || '',
+      premium_paid: lastEntry.premium_paid || '',
+      insurance_agent: lastEntry.insurance_agent || '',
+      contact_details: lastEntry.contact_details || '',
+      need_renewal: lastEntry.need_renewal || false,
+      renewal_date: lastEntry.renewal_date || '',
+      file: null, // do not clone file
+      fileName: '',
+      concern_person_name: lastEntry.concern_person_name || '',
+      concern_person_mobile: lastEntry.concern_person_mobile || '',
+      concern_person_department: lastEntry.concern_person_department || '',
+    };
+
+    setEntries((prev) => [...prev, newEntry]);
+    toast.success('Previous entry data copied. Please fill Policy No.');
+  };
+
+  const removeEntry = (id: string) => {
+    if (entries.length === 1) {
+      toast.error('At least one entry is required.');
+      return;
+    }
+    setEntries((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const resetForm = () => {
+    setEntries([
+      {
+        id: Math.random().toString(),
+        company_name: '',
+        plan_name: '',
+        policy_holder: '',
+        policy_no: '',
+        start_date: '',
+        end_date: '',
+        premium_paid: '',
+        insurance_agent: '',
+        contact_details: '',
+        need_renewal: false,
+        renewal_date: '',
+        file: null,
+        fileName: '',
+        concern_person_name: '',
+        concern_person_mobile: '',
+        concern_person_department: '',
+      },
+    ]);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validation
+    for (const entry of entries) {
+      if (!entry.company_name || !entry.plan_name || !entry.policy_holder || !entry.policy_no || !entry.start_date || !entry.end_date || !entry.premium_paid) {
+        toast.error('Please fill all required fields (*) for all entries.');
+        return;
+      }
+      if (entry.need_renewal && !entry.renewal_date) {
+        toast.error('Please select a renewal date for entries that need renewal.');
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+
     try {
-      setIsSubmitting(true);
+      const uploadResults: Array<{ index: number; fileUrl: string | null }> = [];
 
-      let documentUrl = '';
+      // 1. Upload files
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        if (entry.file) {
+          try {
+            const cleanFileName = entry.fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+            const filePath = `life/${Date.now()}_${cleanFileName}`;
 
-      // Upload File
-      if (fileUpload) {
-        const cleanFileName = fileUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filePath = `life/${Date.now()}_${cleanFileName}`;
+            const { data, error: uploadError } = await supabase.storage
+              .from('insurance')
+              .upload(filePath, entry.file, {
+                cacheControl: '3600',
+                upsert: false,
+              });
 
-        const { data, error } = await supabase.storage
-          .from('insurance')
-          .upload(filePath, fileUpload, {
-            cacheControl: '3600',
-            upsert: false,
-          });
-
-        if (error) throw error;
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from('insurance').getPublicUrl(data.path);
-
-        documentUrl = publicUrl;
+            if (uploadError) {
+              console.error(`Upload failed for file ${i + 1}:`, uploadError);
+              uploadResults.push({ index: i, fileUrl: null });
+              toast.error(`File ${entry.fileName} upload failed. Saving without file.`);
+            } else {
+              const { data: { publicUrl } } = supabase.storage
+                .from('insurance')
+                .getPublicUrl(data.path);
+              uploadResults.push({ index: i, fileUrl: publicUrl });
+            }
+          } catch (uploadErr) {
+            console.error(`Upload error for file ${i + 1}:`, uploadErr);
+            uploadResults.push({ index: i, fileUrl: null });
+            toast.error(`Failed to upload ${entry.fileName}, saving without file.`);
+          }
+        } else {
+          uploadResults.push({ index: i, fileUrl: null });
+        }
       }
 
-      const { data: inserted, error: insertError } = await supabase
-        .from('life_insurance')
-        .insert([
-          {
-            company_name: formData.company_name,
-            plan_name: formData.plan_name,
-            policy_holder: formData.policy_holder,
-            policy_no: formData.policy_no,
-            start_date: formData.start_date || null,
-            end_date: formData.end_date || null,
-            premium_paid: formData.premium_paid ? Number(formData.premium_paid) : null,
-            insurance_agent: formData.insurance_agent,
-            contact_details: formData.contact_details,
-            document_url: documentUrl || null,
-          },
-        ])
-        .select('id')
-        .single();
+      // 2. Insert records
+      for (const [index, entry] of entries.entries()) {
+        const fileUrl = uploadResults.find((r) => r.index === index)?.fileUrl || null;
 
-      if (insertError) throw insertError;
+        const { data: inserted, error: insertError } = await supabase
+          .from('life_insurance')
+          .insert([
+            {
+              company_name: entry.company_name,
+              plan_name: entry.plan_name,
+              policy_holder: entry.policy_holder,
+              policy_no: entry.policy_no,
+              start_date: entry.start_date || null,
+              end_date: entry.end_date || null,
+              premium_paid: entry.premium_paid ? Number(entry.premium_paid) : null,
+              insurance_agent: entry.insurance_agent,
+              contact_details: entry.contact_details,
+              document_url: fileUrl,
+              need_renewal: entry.need_renewal,
+              renewal_date: entry.need_renewal && entry.renewal_date ? entry.renewal_date : null,
+              concern_person_name: entry.concern_person_name || null,
+              concern_person_mobile: entry.concern_person_mobile || null,
+              concern_person_department: entry.concern_person_department || null,
+            },
+          ])
+          .select('id')
+          .single();
 
-      const serialNo = `LI-${String(inserted.id).padStart(3, '0')}`;
+        if (insertError) throw insertError;
 
-      await supabase
-        .from('life_insurance')
-        .update({
-          serial_no: serialNo,
-        })
-        .eq('id', inserted.id);
+        const serialNo = `LI-${String(inserted.id).padStart(3, '0')}`;
 
-      toast.success(`Life Insurance Added (${serialNo})`);
+        await supabase
+          .from('life_insurance')
+          .update({
+            serial_no: serialNo,
+          })
+          .eq('id', inserted.id);
+      }
+
+      toast.success(`${entries.length} Life Insurance record(s) added successfully`);
       resetForm();
       onClose();
 
@@ -132,159 +259,289 @@ const AddLifeInsurance: React.FC<AddLifeInsuranceProps> = ({ isOpen, onClose, on
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 bg-black/40 backdrop-blur-sm overflow-y-auto">
+      <div className="relative my-4 w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-600 rounded-lg">
               <Shield size={20} className="text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-800">Add Life Insurance</h2>
-              <p className="text-xs text-gray-500">Fill life insurance details</p>
+              <h2 className="text-lg font-bold text-gray-800">Add Life Insurance</h2>
+              <p className="text-xs text-gray-500">Fill life insurance details (Max 10)</p>
             </div>
           </div>
-          <button onClick={onClose} disabled={isSubmitting} className="p-2 rounded-full hover:bg-white transition-colors">
-            <X size={22} />
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
+          >
+            <X size={20} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="max-h-[70vh] overflow-y-auto p-6">
-          <form id="life-insurance-form" onSubmit={handleSubmit} className="space-y-6">
-            {/* Policy Info */}
-            <div>
-              <h3 className="text-sm font-semibold uppercase border-b pb-2 text-gray-700">Policy Information</h3>
-              <div className="grid md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Company Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.company_name}
-                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    placeholder="e.g. LIC"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Plan Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.plan_name}
-                    onChange={(e) => setFormData({ ...formData, plan_name: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    placeholder="e.g. Jeevan Anand"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Policy Holder *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.policy_holder}
-                    onChange={(e) => setFormData({ ...formData, policy_holder: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    placeholder="e.g. John Doe"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Policy No. *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.policy_no}
-                    onChange={(e) => setFormData({ ...formData, policy_no: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    placeholder="e.g. 543216789"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Premium Paid *</label>
-                  <input
-                    type="number"
-                    required
-                    value={formData.premium_paid}
-                    onChange={(e) => setFormData({ ...formData, premium_paid: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    placeholder="e.g. 25000"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Dates & Agent Info */}
-            <div>
-              <h3 className="text-sm font-semibold uppercase border-b pb-2 text-gray-700">Dates & Agent Details</h3>
-              <div className="grid md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Start Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">End Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Insurance Agent / Intermediary</label>
-                  <input
-                    type="text"
-                    value={formData.insurance_agent}
-                    onChange={(e) => setFormData({ ...formData, insurance_agent: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    placeholder="Agent name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Contact Details</label>
-                  <input
-                    type="text"
-                    value={formData.contact_details}
-                    onChange={(e) => setFormData({ ...formData, contact_details: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    placeholder="Mobile or email"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold mb-2">Upload Document</label>
-                  <input
-                    type="file"
-                    onChange={handleFileChange}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                  />
-                  {fileName && (
-                    <div className="mt-2 text-sm text-green-600 font-medium">
-                      {fileName}
-                    </div>
+        <div className="overflow-y-auto p-6 bg-gray-50/50 flex-1 space-y-4">
+          <form id="life-insurance-form" onSubmit={handleSubmit} className="space-y-4">
+            {entries.map((entry, index) => (
+              <div
+                key={entry.id}
+                className="relative p-5 bg-white rounded-xl shadow-sm border border-gray-200 group"
+              >
+                <div className="flex justify-between items-center pb-2 mb-4 border-b border-gray-100">
+                  <h3 className="text-xs font-bold tracking-wider text-gray-600 uppercase flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px]">
+                      {index + 1}
+                    </span>
+                    Life Insurance Entry
+                    {index > 0 && (
+                      <span className="text-[10px] font-normal text-indigo-600 lowercase bg-indigo-50 px-2 py-0.5 rounded-full">
+                        auto-filled from previous
+                      </span>
+                    )}
+                  </h3>
+                  {entries.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeEntry(entry.id)}
+                      className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                      title="Remove Entry"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   )}
                 </div>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Company Name */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={entry.company_name}
+                      onChange={(e) => handleChange(entry.id, 'company_name', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="e.g. LIC"
+                    />
+                  </div>
+
+                  {/* Plan Name */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Plan Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={entry.plan_name}
+                      onChange={(e) => handleChange(entry.id, 'plan_name', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="e.g. Jeevan Anand"
+                    />
+                  </div>
+
+                  {/* Policy Holder */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Policy Holder *</label>
+                    <input
+                      type="text"
+                      required
+                      value={entry.policy_holder}
+                      onChange={(e) => handleChange(entry.id, 'policy_holder', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="e.g. John Doe"
+                    />
+                  </div>
+
+                  {/* Policy No */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Policy No *</label>
+                    <input
+                      type="text"
+                      required
+                      value={entry.policy_no}
+                      onChange={(e) => handleChange(entry.id, 'policy_no', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="e.g. 543216789"
+                    />
+                  </div>
+
+                  {/* Premium Paid */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Premium Paid *</label>
+                    <input
+                      type="number"
+                      required
+                      value={entry.premium_paid}
+                      onChange={(e) => handleChange(entry.id, 'premium_paid', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="Premium amount"
+                    />
+                  </div>
+
+                  {/* Start Date */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Start Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={entry.start_date}
+                      onChange={(e) => handleChange(entry.id, 'start_date', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                    />
+                  </div>
+
+                  {/* End Date */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">End Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={entry.end_date}
+                      onChange={(e) => handleChange(entry.id, 'end_date', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                    />
+                  </div>
+
+                  {/* Insurance Agent */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Insurance Agent</label>
+                    <input
+                      type="text"
+                      value={entry.insurance_agent}
+                      onChange={(e) => handleChange(entry.id, 'insurance_agent', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="Agent name"
+                    />
+                  </div>
+
+                  {/* Contact Details */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Contact Details</label>
+                    <input
+                      type="text"
+                      value={entry.contact_details}
+                      onChange={(e) => handleChange(entry.id, 'contact_details', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="Mobile or email"
+                    />
+                  </div>
+
+                  {/* Concern Person Name */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Concern Person Name
+                    </label>
+                    <input
+                      type="text"
+                      value={entry.concern_person_name}
+                      onChange={(e) => handleChange(entry.id, 'concern_person_name', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="Name (Optional)"
+                    />
+                  </div>
+
+                  {/* Concern Person Mobile */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Concern Mobile
+                    </label>
+                    <input
+                      type="text"
+                      value={entry.concern_person_mobile}
+                      onChange={(e) => handleChange(entry.id, 'concern_person_mobile', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="Mobile No (Optional)"
+                    />
+                  </div>
+
+                  {/* Concern Person Department */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Concern Department
+                    </label>
+                    <input
+                      type="text"
+                      value={entry.concern_person_department}
+                      onChange={(e) => handleChange(entry.id, 'concern_person_department', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="Department (Optional)"
+                    />
+                  </div>
+
+                  {/* Need Renewal & Date */}
+                  <div className="flex gap-3 items-center p-2 rounded-lg border border-gray-100 bg-gray-50/50">
+                    <label className="flex gap-2 items-center cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                        checked={entry.need_renewal}
+                        onChange={(e) => handleChange(entry.id, 'need_renewal', e.target.checked)}
+                      />
+                      <span className="text-xs font-semibold text-gray-700">Need Renewal</span>
+                    </label>
+
+                    {entry.need_renewal && (
+                      <div className="flex-1">
+                        <input
+                          type="date"
+                          required={entry.need_renewal}
+                          className="w-full p-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium"
+                          value={entry.renewal_date}
+                          onChange={(e) => handleChange(entry.id, 'renewal_date', e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* File Upload */}
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Upload Document</label>
+                    <div className="relative flex items-center gap-3">
+                      <input
+                        type="file"
+                        id={`file-upload-${entry.id}`}
+                        onChange={(e) => handleFileChange(entry.id, e)}
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      />
+                      <label
+                        htmlFor={`file-upload-${entry.id}`}
+                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:border-indigo-500 hover:text-indigo-600 bg-white rounded-lg cursor-pointer text-xs font-semibold shadow-sm transition"
+                      >
+                        <Upload size={14} />
+                        Choose File
+                      </label>
+                      {entry.fileName ? (
+                        <div className="text-xs text-green-600 font-medium truncate max-w-md">{entry.fileName}</div>
+                      ) : (
+                        <span className="text-xs text-gray-400">No file chosen</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </form>
+
+          {/* Add Entry Button */}
+          <button
+            type="button"
+            onClick={addEntry}
+            className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 hover:border-indigo-500 text-gray-500 hover:text-indigo-600 font-semibold rounded-xl transition bg-white"
+          >
+            <Plus size={16} />
+            Add Another Life Insurance
+          </button>
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 p-6 border-t bg-gray-50">
+        <div className="flex gap-3 p-5 border-t bg-gray-50 flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex-1 py-3 border rounded-xl font-semibold hover:bg-gray-100 transition-colors"
+            className="flex-1 py-3 border rounded-xl font-semibold hover:bg-gray-100 transition text-sm text-gray-700 bg-white"
           >
             Cancel
           </button>
@@ -292,12 +549,12 @@ const AddLifeInsurance: React.FC<AddLifeInsuranceProps> = ({ isOpen, onClose, on
             form="life-insurance-form"
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition text-sm"
           >
             {isSubmitting ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Saving...
+                Saving ({entries.length})...
               </>
             ) : (
               <>

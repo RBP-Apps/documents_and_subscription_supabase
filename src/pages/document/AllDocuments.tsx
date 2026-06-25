@@ -430,10 +430,10 @@ const AllDocuments = () => {
               </div>
             ) : (
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">
+                <h1 className="text-xl font-bold text-gray-800">
                   All Documents
                 </h1>
-                <p className="text-gray-500 text-sm mt-1">
+                <p className="text-gray-500 text-xs mt-1">
                   Manage your documents repository
                 </p>
               </div>

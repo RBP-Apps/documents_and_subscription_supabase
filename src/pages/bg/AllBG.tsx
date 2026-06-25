@@ -101,8 +101,8 @@ const AllBG = () => {
                         {/* Header */}
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900">All BG</h1>
-                                <p className="text-gray-500 text-sm mt-1">Manage your bank guarantees</p>
+                                <h1 className="text-xl font-bold text-gray-900">All BG</h1>
+                                <p className="text-gray-500 text-xs mt-1">Manage your bank guarantees</p>
                             </div>
                             <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
                                 <div className="relative flex-1 sm:min-w-[240px]">

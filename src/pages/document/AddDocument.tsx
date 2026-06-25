@@ -617,7 +617,7 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
                   {/* 8. Concern Person Name - OPTIONAL */}
                   <div>
                     <label className="block mb-1 text-xs font-semibold text-gray-600">
-                      Conser Person Name
+                      Concern Person Name 
                     </label>
                     <input
                       type="text"
@@ -637,7 +637,7 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
                   {/* 9. Concern Person Mobile - OPTIONAL */}
                   <div>
                     <label className="block mb-1 text-xs font-semibold text-gray-600">
-                      Conser Mobile
+                      Concern Mobile
                     </label>
                     <input
                       type="text"

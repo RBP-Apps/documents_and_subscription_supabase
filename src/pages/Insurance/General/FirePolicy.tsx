@@ -312,14 +312,14 @@ const FirePolicyPage = () => {
       <div className="space-y-4">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <Shield className="text-indigo-600" size={24} />
                   Fire Policy
                 </h1>
-                <p className="text-gray-500 text-sm mt-1">
+                <p className="text-gray-500 text-xs mt-1">
                   Manage fire policy insurance records
                 </p>
               </div>
@@ -335,7 +335,7 @@ const FirePolicyPage = () => {
           </div>
 
           {/* Search and Filter Section */}
-          <div className="p-6 bg-gray-50 rounded-b-xl space-y-4">
+          <div className="p-4 bg-gray-50 rounded-b-xl space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Search */}
               <div className="relative w-full">

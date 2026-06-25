@@ -37,6 +37,11 @@ interface VehicleInsurance {
   policy_link: string;
   file_url?: string;
   created_at: string;
+  need_renewal?: boolean;
+  renewal_date?: string;
+  concern_person_name?: string;
+  concern_person_mobile?: string;
+  concern_person_department?: string;
 }
 
 const Vehicle = () => {
@@ -132,6 +137,12 @@ const Vehicle = () => {
         .includes(searchTerm.toLowerCase()) ||
       item.model
         ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      item.concern_person_name
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      item.concern_person_mobile
+        ?.toLowerCase()
         .includes(searchTerm.toLowerCase());
 
     const matchesCompany = filterCompany
@@ -177,14 +188,14 @@ const Vehicle = () => {
 
         {/* Header - UI Refinement */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <Car className="text-indigo-600" size={24} />
                   Vehicle Insurance
                 </h1>
-                <p className="text-gray-500 text-sm mt-1">
+                <p className="text-gray-500 text-xs mt-1">
                   Manage all vehicle insurance records
                 </p>
               </div>
@@ -200,7 +211,7 @@ const Vehicle = () => {
           </div>
 
           {/* Search and Filter Section */}
-          <div className="p-6 bg-gray-50 rounded-b-xl">
+          <div className="p-4 bg-gray-50 rounded-b-xl">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
                 <Search
@@ -234,9 +245,9 @@ const Vehicle = () => {
 
         {/* Desktop Table - UI Refinement */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+           <div className="overflow-auto max-h-[400px]">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+               <thead className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                 <tr className="text-xs uppercase text-gray-600 font-semibold tracking-wider">
                   <th className="px-6 py-4 text-left">S.NO</th>
                   <th className="px-6 py-4 text-center">ACTION</th>
@@ -248,8 +259,12 @@ const Vehicle = () => {
                   <th className="px-6 py-4 text-left">MODEL</th>
                   <th className="px-6 py-4 text-left">INSURANCE AGENT</th>
                   <th className="px-6 py-4 text-left">PERIOD</th>
+                  <th className="px-6 py-4 text-left">RENEWAL DATE</th>
                   <th className="px-6 py-4 text-right">PREMIUM</th>
                   <th className="px-6 py-4 text-left">ADD ON</th>
+                  <th className="px-6 py-4 text-left">CONCERN PERSON</th>
+                  <th className="px-6 py-4 text-left">CONCERN MOBILE</th>
+                  <th className="px-6 py-4 text-left">CONCERN DEPT</th>
                 </tr>
               </thead>
 
@@ -324,18 +339,36 @@ const Vehicle = () => {
                       <br />
                       {formatDate(item.period_to)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {item.need_renewal ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                          {formatDate(item.renewal_date || '')}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-right font-bold text-gray-900 text-sm">
                       {formatAmount(item.premium_paid)}
                     </td>
                     <td className="px-6 py-4 text-gray-600 text-sm">
                       {item.add_on || '-'}
                     </td>
+                    <td className="px-6 py-4 text-gray-600 text-sm">
+                      {item.concern_person_name || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 text-sm">
+                      {item.concern_person_mobile || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 text-sm">
+                      {item.concern_person_department || '-'}
+                    </td>
                   </tr>
                 ))}
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="text-center py-12 text-gray-500">
+                    <td colSpan={13} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <Car size={48} className="text-gray-300" />
                         <p>No Vehicle Insurance Records Found</p>

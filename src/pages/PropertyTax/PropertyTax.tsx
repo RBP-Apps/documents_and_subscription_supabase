@@ -89,9 +89,8 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
             )}
             <ChevronDown
               size={16}
-              className={`text-gray-400 transition-transform duration-200 ${
-                isOpen ? 'rotate-180' : ''
-              }`}
+              className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''
+                }`}
             />
           </span>
         </button>
@@ -126,9 +125,8 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                 onChange('');
                 setIsOpen(false);
               }}
-              className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${
-                !value ? 'text-indigo-600 font-semibold bg-indigo-50/30' : 'text-gray-700'
-              }`}
+              className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${!value ? 'text-indigo-600 font-semibold bg-indigo-50/30' : 'text-gray-700'
+                }`}
             >
               <span>{placeholder}</span>
               {!value && <Check size={14} className="text-indigo-600 shrink-0" />}
@@ -142,9 +140,8 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                     onChange(option);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${
-                    value === option ? 'text-indigo-600 font-semibold bg-indigo-50/30' : 'text-gray-700'
-                  }`}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${value === option ? 'text-indigo-600 font-semibold bg-indigo-50/30' : 'text-gray-700'
+                    }`}
                 >
                   <span className="truncate">{option}</span>
                   {value === option && <Check size={14} className="text-indigo-600 shrink-0" />}
@@ -320,14 +317,14 @@ const PropertyTax = () => {
 
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <Building2 className="text-indigo-600" size={24} />
                   Property Tax
                 </h1>
-                <p className="text-gray-500 text-sm mt-1">
+                <p className="text-gray-500 text-xs mt-1">
                   Manage Property Tax Records
                 </p>
               </div>
@@ -343,8 +340,9 @@ const PropertyTax = () => {
           </div>
 
           {/* Search and Filter Section */}
-          <div className="p-6 bg-gray-50 rounded-b-xl space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-gray-50 rounded-b-xl">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+
               {/* Search */}
               <div className="relative w-full">
                 <Search
@@ -363,7 +361,6 @@ const PropertyTax = () => {
                     type="button"
                     onClick={() => setSearchTerm('')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center"
-                    title="Clear Search"
                   >
                     <X size={16} />
                   </button>
@@ -399,28 +396,30 @@ const PropertyTax = () => {
                   )
                 ).sort()}
               />
-            </div>
 
-            {(searchTerm || propertyFilter || financialYearFilter) && (
-              <div className="flex justify-end pt-2 border-t border-gray-200/50">
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setPropertyFilter('');
-                    setFinancialYearFilter('');
-                  }}
-                  className="text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors border border-red-100"
-                >
-                  Clear Filters
-                </button>
+              {/* Clear Filters */}
+              <div className="flex justify-end">
+                {(searchTerm || propertyFilter || financialYearFilter) && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setPropertyFilter('');
+                      setFinancialYearFilter('');
+                    }}
+                    className="w-full md:w-auto h-[42px] px-4 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100"
+                  >
+                    Clear Filters
+                  </button>
+                )}
               </div>
-            )}
+
+            </div>
           </div>
         </div>
 
         {/* Desktop Table */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+          <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
             <table className="w-full">
               <thead className="sticky top-0 bg-gray-50 border-b border-gray-200 z-10">
                 <tr className="text-xs uppercase text-gray-600 font-semibold tracking-wider">

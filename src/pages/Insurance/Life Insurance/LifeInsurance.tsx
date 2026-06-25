@@ -37,6 +37,11 @@ interface LifeInsurance {
   contact_details: string;
   document_url: string;
   created_at: string;
+  need_renewal?: boolean;
+  renewal_date?: string;
+  concern_person_name?: string;
+  concern_person_mobile?: string;
+  concern_person_department?: string;
 }
 
 interface SearchableDropdownProps {
@@ -261,7 +266,9 @@ const LifeInsurancePage = () => {
       item.plan_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.policy_holder?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.policy_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.insurance_agent?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.insurance_agent?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.concern_person_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.concern_person_mobile?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesCompany = filterCompany ? item.company_name === filterCompany : true;
     const matchesHolder = filterHolder ? item.policy_holder === filterHolder : true;
@@ -304,14 +311,14 @@ const LifeInsurancePage = () => {
       <div className="space-y-4">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <Shield className="text-indigo-600" size={24} />
                   Life Insurance
                 </h1>
-                <p className="text-gray-500 text-sm mt-1">
+                <p className="text-gray-500 text-xs mt-1">
                   Manage all life insurance records
                 </p>
               </div>
@@ -327,7 +334,7 @@ const LifeInsurancePage = () => {
           </div>
 
           {/* Search and Filter Section */}
-          <div className="p-6 bg-gray-50 rounded-b-xl space-y-4">
+          <div className="p-4 bg-gray-50 rounded-b-xl space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Search */}
               <div className="relative w-full">
@@ -405,9 +412,13 @@ const LifeInsurancePage = () => {
                   <th className="px-6 py-4 text-left">POLICY HOLDER</th>
                   <th className="px-6 py-4 text-left">POLICY NO.</th>
                   <th className="px-6 py-4 text-left">PERIOD</th>
+                  <th className="px-6 py-4 text-left">RENEWAL DATE</th>
                   <th className="px-6 py-4 text-right">PREMIUM PAID</th>
                   <th className="px-6 py-4 text-left">INSURANCE AGENT</th>
                   <th className="px-6 py-4 text-left">CONTACT DETAILS</th>
+                  <th className="px-6 py-4 text-left">CONCERN PERSON</th>
+                  <th className="px-6 py-4 text-left">CONCERN MOBILE</th>
+                  <th className="px-6 py-4 text-left">CONCERN DEPT</th>
                 </tr>
               </thead>
 
@@ -479,6 +490,15 @@ const LifeInsurancePage = () => {
                       <br />
                       {formatDate(item.end_date)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {item.need_renewal ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                          {formatDate(item.renewal_date || '')}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap text-sm">
                       {formatAmount(item.premium_paid)}
                     </td>
@@ -486,14 +506,23 @@ const LifeInsurancePage = () => {
                       {item.insurance_agent}
                     </td>
                     <td className="px-6 py-4 text-gray-600 text-sm">
-                      {item.contact_details || '-'}
+                      {item.contact_details}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 text-sm">
+                      {item.concern_person_name || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 text-sm">
+                      {item.concern_person_mobile || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 text-sm">
+                      {item.concern_person_department || '-'}
                     </td>
                   </tr>
                 ))}
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="text-center py-12 text-gray-500">
+                    <td colSpan={13} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <Shield size={48} className="text-gray-300" />
                         <p>No Life Insurance Records Found</p>

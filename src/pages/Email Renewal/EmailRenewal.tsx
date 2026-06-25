@@ -33,6 +33,11 @@ interface DetailRow {
   end_date: string;
   quantity: number;
   total_amount: number;
+  need_renewal?: boolean;
+  renewal_date?: string;
+  concern_person_name?: string;
+  concern_person_mobile?: string;
+  concern_person_department?: string;
 }
 
 interface MasterRecord {
@@ -56,6 +61,11 @@ interface FlattenedRow {
   end_date: string;
   quantity: number;
   total_amount: number;
+  need_renewal?: boolean;
+  renewal_date?: string;
+  concern_person_name?: string;
+  concern_person_mobile?: string;
+  concern_person_department?: string;
   master: MasterRecord;
 }
 
@@ -124,9 +134,8 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
             )}
             <ChevronDown
               size={16}
-              className={`text-gray-400 transition-transform duration-200 ${
-                isOpen ? 'rotate-180' : ''
-              }`}
+              className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''
+                }`}
             />
           </span>
         </button>
@@ -161,9 +170,8 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                 onChange('');
                 setIsOpen(false);
               }}
-              className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${
-                !value ? 'text-indigo-600 font-semibold bg-indigo-50/30' : 'text-gray-700'
-              }`}
+              className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${!value ? 'text-indigo-600 font-semibold bg-indigo-50/30' : 'text-gray-700'
+                }`}
             >
               <span>{placeholder}</span>
               {!value && <Check size={14} className="text-indigo-600 shrink-0" />}
@@ -177,9 +185,8 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                     onChange(option);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${
-                    value === option ? 'text-indigo-600 font-semibold bg-indigo-50/30' : 'text-gray-700'
-                  }`}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${value === option ? 'text-indigo-600 font-semibold bg-indigo-50/30' : 'text-gray-700'
+                    }`}
                 >
                   <span className="truncate">{option}</span>
                   {value === option && <Check size={14} className="text-indigo-600 shrink-0" />}
@@ -255,6 +262,11 @@ const EmailRenewal = () => {
               end_date: detail.end_date,
               quantity: detail.quantity,
               total_amount: detail.total_amount,
+              need_renewal: detail.need_renewal,
+              renewal_date: detail.renewal_date,
+              concern_person_name: detail.concern_person_name,
+              concern_person_mobile: detail.concern_person_mobile,
+              concern_person_department: detail.concern_person_department,
               master: master,
             });
           });
@@ -361,14 +373,14 @@ const EmailRenewal = () => {
       <div className="space-y-4">
         {/* Header Panel */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <MailWarning className="text-indigo-600 animate-pulse" size={24} />
                   Email & Expense Renewal Entry
                 </h1>
-                <p className="text-gray-500 text-sm mt-1">
+                <p className="text-gray-500 text-xs mt-1">
                   Manage domain subscriptions, hostings, and SSL certificate renewals
                 </p>
               </div>
@@ -384,8 +396,9 @@ const EmailRenewal = () => {
           </div>
 
           {/* Filters */}
-          <div className="p-6 bg-gray-50 rounded-b-xl space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-gray-50 rounded-b-xl">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+
               {/* Search input */}
               <div className="relative w-full">
                 <Search
@@ -428,30 +441,32 @@ const EmailRenewal = () => {
                 searchPlaceholder="Search Domain..."
                 options={domains}
               />
-            </div>
 
-            {(searchTerm || filterProvider || filterDomain) && (
-              <div className="flex justify-end pt-2 border-t border-gray-200/50">
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setFilterProvider('');
-                    setFilterDomain('');
-                  }}
-                  className="text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors border border-red-100"
-                >
-                  Clear Filters
-                </button>
+              {/* Clear Filters */}
+              <div className="flex justify-end">
+                {(searchTerm || filterProvider || filterDomain) && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setFilterProvider('');
+                      setFilterDomain('');
+                    }}
+                    className="w-full md:w-auto h-[42px] text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 rounded-lg transition-colors border border-red-100 whitespace-nowrap"
+                  >
+                    Clear Filters
+                  </button>
+                )}
               </div>
-            )}
+
+            </div>
           </div>
         </div>
 
         {/* Desktop Table View */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+           <div className="overflow-auto max-h-[400px]">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                 <tr className="text-xs uppercase text-gray-600 font-semibold tracking-wider">
                   <th className="px-4 py-4 text-left">SR No</th>
                   <th className="px-4 py-4 text-center">Action</th>
@@ -467,6 +482,9 @@ const EmailRenewal = () => {
                   <th className="px-4 py-4 text-left">Subscription End</th>
                   <th className="px-4 py-4 text-center">Qty</th>
                   <th className="px-4 py-4 text-right">Total Amount</th>
+                  <th className="px-4 py-4 text-left">Concern Person</th>
+                  <th className="px-4 py-4 text-left">Concern Mobile</th>
+                  <th className="px-4 py-4 text-left">Concern Dept</th>
                   <th className="px-4 py-4 text-left">Remarks</th>
                 </tr>
               </thead>
@@ -548,6 +566,15 @@ const EmailRenewal = () => {
                     <td className="px-4 py-4 text-right font-bold text-gray-900 whitespace-nowrap">
                       {formatAmount(row.total_amount)}
                     </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-gray-700">
+                      {row.concern_person_name || '-'}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-gray-700">
+                      {row.concern_person_mobile || '-'}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-gray-700">
+                      {row.concern_person_department || '-'}
+                    </td>
                     <td className="px-4 py-4 text-gray-500 max-w-xs truncate" title={row.master.remarks}>
                       {row.master.remarks || '-'}
                     </td>
@@ -556,7 +583,7 @@ const EmailRenewal = () => {
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={14} className="text-center py-16 text-gray-500">
+                    <td colSpan={18} className="text-center py-16 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <MailWarning size={48} className="text-gray-300 animate-bounce" />
                         <p className="font-medium text-gray-600">No Email Renewal Entries Found</p>

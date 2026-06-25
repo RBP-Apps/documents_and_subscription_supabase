@@ -18,6 +18,11 @@ interface HealthInsurance {
   insurance_agent: string;
   contact_details: string;
   document_url: string;
+  need_renewal?: boolean;
+  renewal_date?: string;
+  concern_person_name?: string;
+  concern_person_mobile?: string;
+  concern_person_department?: string;
 }
 
 interface EditHealthProps {
@@ -45,6 +50,11 @@ const EditHealth: React.FC<EditHealthProps> = ({
     premium_paid: '',
     insurance_agent: '',
     contact_details: '',
+    need_renewal: false,
+    renewal_date: '',
+    concern_person_name: '',
+    concern_person_mobile: '',
+    concern_person_department: '',
   });
 
   const [fileUpload, setFileUpload] = useState<File | null>(null);
@@ -65,6 +75,11 @@ const EditHealth: React.FC<EditHealthProps> = ({
         premium_paid: insuranceData.premium_paid ? insuranceData.premium_paid.toString() : '',
         insurance_agent: insuranceData.insurance_agent || '',
         contact_details: insuranceData.contact_details || '',
+        need_renewal: insuranceData.need_renewal || false,
+        renewal_date: insuranceData.renewal_date || '',
+        concern_person_name: insuranceData.concern_person_name || '',
+        concern_person_mobile: insuranceData.concern_person_mobile || '',
+        concern_person_department: insuranceData.concern_person_department || '',
       });
       setFileName('');
       setFileUpload(null);
@@ -88,6 +103,11 @@ const EditHealth: React.FC<EditHealthProps> = ({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (formData.need_renewal && !formData.renewal_date) {
+      toast.error('Please select a renewal date.');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -130,6 +150,11 @@ const EditHealth: React.FC<EditHealthProps> = ({
           insurance_agent: formData.insurance_agent,
           contact_details: formData.contact_details,
           document_url: documentUrl || null,
+          need_renewal: formData.need_renewal,
+          renewal_date: formData.need_renewal && formData.renewal_date ? formData.renewal_date : null,
+          concern_person_name: formData.concern_person_name || null,
+          concern_person_mobile: formData.concern_person_mobile || null,
+          concern_person_department: formData.concern_person_department || null,
         })
         .eq('id', insuranceData.id);
 
@@ -150,10 +175,10 @@ const EditHealth: React.FC<EditHealthProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-600 rounded-lg">
               <HeartPulse size={20} className="text-white" />
@@ -169,137 +194,227 @@ const EditHealth: React.FC<EditHealthProps> = ({
         </div>
 
         {/* Body */}
-        <div className="max-h-[70vh] overflow-y-auto p-6">
+        <div className="overflow-y-auto p-6 bg-gray-50/50 flex-1">
           <form id="edit-health-insurance-form" onSubmit={handleSubmit} className="space-y-6">
             {/* Policy Info */}
-            <div>
-              <h3 className="text-sm font-semibold uppercase border-b pb-2 text-gray-700">Policy Information</h3>
-              <div className="grid md:grid-cols-2 gap-4 mt-4">
+            <div className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
+              <h3 className="text-sm font-semibold uppercase border-b pb-2 text-gray-700 mb-4">Policy Information</h3>
+              <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Company Name *</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name *</label>
                   <input
                     type="text"
                     required
                     value={formData.company_name}
                     onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Plan Name *</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Plan Name *</label>
                   <input
                     type="text"
                     required
                     value={formData.plan_name}
                     onChange={(e) => setFormData({ ...formData, plan_name: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Policy Holder *</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Policy Holder *</label>
                   <input
                     type="text"
                     required
                     value={formData.policy_holder}
                     onChange={(e) => setFormData({ ...formData, policy_holder: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Policy No. *</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Policy No. *</label>
                   <input
                     type="text"
                     required
                     value={formData.policy_no}
                     onChange={(e) => setFormData({ ...formData, policy_no: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold mb-2">Persons Covered *</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Persons Covered *</label>
                   <textarea
                     rows={2}
                     required
                     value={formData.persons_covered}
                     onChange={(e) => setFormData({ ...formData, persons_covered: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Policy Cover (Sum Insured) *</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Policy Cover (Sum Insured) *</label>
                   <input
                     type="number"
                     required
                     value={formData.policy_cover}
                     onChange={(e) => setFormData({ ...formData, policy_cover: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Premium Paid *</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Premium Paid *</label>
                   <input
                     type="number"
                     required
                     value={formData.premium_paid}
                     onChange={(e) => setFormData({ ...formData, premium_paid: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
               </div>
             </div>
 
             {/* Dates & Agent Info */}
-            <div>
-              <h3 className="text-sm font-semibold uppercase border-b pb-2 text-gray-700">Dates & Agent Details</h3>
-              <div className="grid md:grid-cols-2 gap-4 mt-4">
+            <div className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
+              <h3 className="text-sm font-semibold uppercase border-b pb-2 text-gray-700 mb-4">Dates & Agent Details</h3>
+              <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Start Date *</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Start Date *</label>
                   <input
                     type="date"
                     required
                     value={formData.start_date}
                     onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">End Date *</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">End Date *</label>
                   <input
                     type="date"
                     required
                     value={formData.end_date}
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Insurance Agent</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Insurance Agent</label>
                   <input
                     type="text"
                     value={formData.insurance_agent}
                     onChange={(e) => setFormData({ ...formData, insurance_agent: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Contact Details</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Contact Details</label>
                   <input
                     type="text"
                     value={formData.contact_details}
                     onChange={(e) => setFormData({ ...formData, contact_details: e.target.value })}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                    Concern Person Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.concern_person_name}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        concern_person_name: e.target.value,
+                      })
+                    }
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                    placeholder="Name (Optional)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                    Concern Mobile
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.concern_person_mobile}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        concern_person_mobile: e.target.value,
+                      })
+                    }
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                    placeholder="Mobile No (Optional)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                    Concern Department
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.concern_person_department}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        concern_person_department: e.target.value,
+                      })
+                    }
+                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                    placeholder="Department (Optional)"
+                  />
+                </div>
+
+                {/* Need Renewal & Date */}
+                <div className="md:col-span-2 flex gap-4 items-center p-3 rounded-lg border border-gray-100 bg-gray-50/50">
+                  <label className="flex gap-2 items-center cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                      checked={formData.need_renewal}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          need_renewal: e.target.checked,
+                        })
+                      }
+                    />
+                    <span className="text-sm font-semibold text-gray-700">Need Renewal</span>
+                  </label>
+
+                  {formData.need_renewal && (
+                    <div className="flex-1">
+                      <input
+                        type="date"
+                        required={formData.need_renewal}
+                        className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium"
+                        value={formData.renewal_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            renewal_date: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold mb-2">Upload Document (Replaces current)</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Upload Document (Replaces current)</label>
                   <input
                     type="file"
                     onChange={handleFileChange}
-                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full p-2 border rounded-lg bg-gray-50/30 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none cursor-pointer"
                     accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                   />
                   {fileName && (
-                    <div className="mt-2 text-sm text-green-600 font-medium">
+                    <div className="mt-2 text-xs text-green-600 font-medium">
                       {fileName}
                     </div>
                   )}
@@ -315,12 +430,12 @@ const EditHealth: React.FC<EditHealthProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 p-6 border-t bg-gray-50">
+        <div className="flex gap-3 p-6 border-t bg-gray-50 flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex-1 py-3 border rounded-xl font-semibold hover:bg-gray-100 transition-colors"
+            className="flex-1 py-3 border rounded-xl font-semibold hover:bg-gray-100 transition text-sm bg-white"
           >
             Cancel
           </button>
@@ -328,7 +443,7 @@ const EditHealth: React.FC<EditHealthProps> = ({
             form="edit-health-insurance-form"
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition text-sm"
           >
             {isSubmitting ? (
               <>

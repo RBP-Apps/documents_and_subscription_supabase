@@ -4,65 +4,47 @@ import {
   X,
   Save,
   Loader2,
-  Car,
+  Briefcase,
   Plus,
   Trash2,
   Upload,
 } from 'lucide-react';
 import supabase from '../../../utils/supabase';
 
-interface AddVehicleInsuranceProps {
+interface AddWorkOrdersProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-interface VehicleInsuranceEntry {
+interface WorkOrderEntry {
   id: string;
+  state: string;
+  date: string;
+  department: string;
+  scheme: string;
   company_name: string;
-  registration_no: string;
-  make: string;
-  model: string;
-  insurance_agent: string;
-  period_from: string;
-  period_to: string;
-  premium_paid: string;
-  add_on: string;
-  policy_link: string;
-  need_renewal: boolean;
-  renewal_date: string;
+  total_value: string;
   file: File | null;
   fileName: string;
-  concern_person_name: string;
-  concern_person_mobile: string;
-  concern_person_department: string;
 }
 
-const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
+const AddWorkOrders: React.FC<AddWorkOrdersProps> = ({
   isOpen,
   onClose,
   onSuccess,
 }) => {
-  const [entries, setEntries] = useState<VehicleInsuranceEntry[]>([
+  const [entries, setEntries] = useState<WorkOrderEntry[]>([
     {
       id: Math.random().toString(),
+      state: '',
+      date: '',
+      department: '',
+      scheme: '',
       company_name: '',
-      registration_no: '',
-      make: '',
-      model: '',
-      insurance_agent: '',
-      period_from: '',
-      period_to: '',
-      premium_paid: '',
-      add_on: '',
-      policy_link: '',
-      need_renewal: false,
-      renewal_date: '',
+      total_value: '',
       file: null,
       fileName: '',
-      concern_person_name: '',
-      concern_person_mobile: '',
-      concern_person_department: '',
     },
   ]);
 
@@ -70,7 +52,7 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
 
   if (!isOpen) return null;
 
-  const handleChange = (id: string, field: keyof VehicleInsuranceEntry, value: any) => {
+  const handleChange = (id: string, field: keyof WorkOrderEntry, value: any) => {
     setEntries((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
@@ -100,36 +82,27 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
 
   const addEntry = () => {
     if (entries.length >= 10) {
-      toast.error('You can add maximum 10 insurance records at a time.');
+      toast.error('You can add maximum 10 work order records at a time.');
       return;
     }
 
     const lastEntry = entries[entries.length - 1];
 
-    // Create new entry, cloning previous fields except registration_no and file
-    const newEntry: VehicleInsuranceEntry = {
+    // Create new entry, cloning previous fields for convenience except file
+    const newEntry: WorkOrderEntry = {
       id: Math.random().toString(),
+      state: lastEntry.state || '',
+      date: lastEntry.date || '',
+      department: lastEntry.department || '',
+      scheme: lastEntry.scheme || '',
       company_name: lastEntry.company_name || '',
-      registration_no: '', // leave empty for user to fill
-      make: lastEntry.make || '',
-      model: lastEntry.model || '',
-      insurance_agent: lastEntry.insurance_agent || '',
-      period_from: lastEntry.period_from || '',
-      period_to: lastEntry.period_to || '',
-      premium_paid: lastEntry.premium_paid || '',
-      add_on: lastEntry.add_on || '',
-      policy_link: lastEntry.policy_link || '',
-      need_renewal: lastEntry.need_renewal || false,
-      renewal_date: lastEntry.renewal_date || '',
-      file: null, // do not clone file
+      total_value: lastEntry.total_value || '',
+      file: null,
       fileName: '',
-      concern_person_name: lastEntry.concern_person_name || '',
-      concern_person_mobile: lastEntry.concern_person_mobile || '',
-      concern_person_department: lastEntry.concern_person_department || '',
     };
 
     setEntries((prev) => [...prev, newEntry]);
-    toast.success('Previous entry data copied. Please fill Registration No.');
+    toast.success('Previous entry data copied.');
   };
 
   const removeEntry = (id: string) => {
@@ -144,23 +117,14 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
     setEntries([
       {
         id: Math.random().toString(),
+        state: '',
+        date: '',
+        department: '',
+        scheme: '',
         company_name: '',
-        registration_no: '',
-        make: '',
-        model: '',
-        insurance_agent: '',
-        period_from: '',
-        period_to: '',
-        premium_paid: '',
-        add_on: '',
-        policy_link: '',
-        need_renewal: false,
-        renewal_date: '',
+        total_value: '',
         file: null,
         fileName: '',
-        concern_person_name: '',
-        concern_person_mobile: '',
-        concern_person_department: '',
       },
     ]);
   };
@@ -170,12 +134,8 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
 
     // Validation
     for (const entry of entries) {
-      if (!entry.company_name || !entry.registration_no || !entry.make || !entry.model || !entry.period_from || !entry.period_to || !entry.premium_paid) {
+      if (!entry.state || !entry.date || !entry.department || !entry.scheme || !entry.company_name || !entry.total_value) {
         toast.error('Please fill all required fields (*) for all entries.');
-        return;
-      }
-      if (entry.need_renewal && !entry.renewal_date) {
-        toast.error('Please select a renewal date for entries that need renewal.');
         return;
       }
     }
@@ -191,10 +151,10 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
         if (entry.file) {
           try {
             const cleanFileName = entry.fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const filePath = `vehicle/${Date.now()}_${cleanFileName}`;
+            const filePath = `work_orders/${Date.now()}_${cleanFileName}`;
 
             const { data, error: uploadError } = await supabase.storage
-              .from('insurance')
+              .from('insurance') // using insurance bucket for project documents as well
               .upload(filePath, entry.file, {
                 cacheControl: '3600',
                 upsert: false,
@@ -225,25 +185,16 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
         const fileUrl = uploadResults.find((r) => r.index === index)?.fileUrl || null;
 
         const { data: inserted, error: insertError } = await supabase
-          .from('vehicle_insurance')
+          .from('work_orders')
           .insert([
             {
+              state: entry.state,
+              date: entry.date,
+              department: entry.department,
+              scheme: entry.scheme,
               company_name: entry.company_name,
-              registration_no: entry.registration_no,
-              make: entry.make,
-              model: entry.model,
-              insurance_agent: entry.insurance_agent,
-              period_from: entry.period_from || null,
-              period_to: entry.period_to || null,
-              premium_paid: entry.premium_paid ? Number(entry.premium_paid) : 0,
-              add_on: entry.add_on || null,
-              policy_link: entry.policy_link || null,
+              total_value: entry.total_value ? Number(entry.total_value) : 0,
               file_url: fileUrl,
-              need_renewal: entry.need_renewal,
-              renewal_date: entry.need_renewal && entry.renewal_date ? entry.renewal_date : null,
-              concern_person_name: entry.concern_person_name || null,
-              concern_person_mobile: entry.concern_person_mobile || null,
-              concern_person_department: entry.concern_person_department || null,
             },
           ])
           .select('id')
@@ -251,17 +202,17 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
 
         if (insertError) throw insertError;
 
-        const serialNo = `VEH-${inserted.id}`;
+        const serialNo = `WO-${inserted.id}`;
 
         await supabase
-          .from('vehicle_insurance')
+          .from('work_orders')
           .update({
             serial_no: serialNo,
           })
           .eq('id', inserted.id);
       }
 
-      toast.success(`${entries.length} Vehicle Insurance record(s) added successfully`);
+      toast.success(`${entries.length} Work Order record(s) added successfully`);
       resetForm();
       onClose();
 
@@ -270,7 +221,7 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
       }
     } catch (error) {
       console.error(error);
-      toast.error('Failed to save vehicle insurance');
+      toast.error('Failed to save work orders');
     } finally {
       setIsSubmitting(false);
     }
@@ -283,14 +234,14 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
         <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-600 rounded-lg">
-              <Car size={20} className="text-white" />
+              <Briefcase size={20} className="text-white" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-800 animate-pulse-subtle">
-                Add Vehicle Insurance
+                Add Work Order
               </h2>
               <p className="text-xs text-gray-500">
-                Fill vehicle insurance details (Max 10)
+                Fill project work order details (Max 10)
               </p>
             </div>
           </div>
@@ -305,7 +256,7 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
 
         {/* Body */}
         <div className="overflow-y-auto p-6 bg-gray-50/50 flex-1 space-y-4">
-          <form id="vehicle-insurance-form" onSubmit={handleSubmit} className="space-y-4">
+          <form id="work-orders-form" onSubmit={handleSubmit} className="space-y-4">
             {entries.map((entry, index) => (
               <div
                 key={entry.id}
@@ -316,10 +267,10 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
                     <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px]">
                       {index + 1}
                     </span>
-                    Vehicle Entry
+                    Work Order Entry
                     {index > 0 && (
                       <span className="text-[10px] font-normal text-indigo-600 lowercase bg-indigo-50 px-2 py-0.5 rounded-full">
-                        auto-filled from previous
+                        copied from previous
                       </span>
                     )}
                   </h3>
@@ -336,6 +287,65 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
                 </div>
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* State */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      State *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={entry.state}
+                      onChange={(e) => handleChange(entry.id, 'state', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="e.g. Maharashtra"
+                    />
+                  </div>
+
+                  {/* Date */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={entry.date}
+                      onChange={(e) => handleChange(entry.id, 'date', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                    />
+                  </div>
+
+                  {/* Department */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Department *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={entry.department}
+                      onChange={(e) => handleChange(entry.id, 'department', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="e.g. PWD"
+                    />
+                  </div>
+
+                  {/* Scheme */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Scheme *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={entry.scheme}
+                      onChange={(e) => handleChange(entry.id, 'scheme', e.target.value)}
+                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                      placeholder="e.g. Smart City Project"
+                    />
+                  </div>
+
                   {/* Company Name */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">
@@ -347,214 +357,29 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
                       value={entry.company_name}
                       onChange={(e) => handleChange(entry.id, 'company_name', e.target.value)}
                       className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="e.g. Star Insurance"
+                      placeholder="e.g. ABC Infra"
                     />
                   </div>
 
-                  {/* Registration No */}
+                  {/* Total Value */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Registration No *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={entry.registration_no}
-                      onChange={(e) => handleChange(entry.id, 'registration_no', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="e.g. MH12AB1234"
-                    />
-                  </div>
-
-                  {/* Make */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Make *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={entry.make}
-                      onChange={(e) => handleChange(entry.id, 'make', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="e.g. Honda"
-                    />
-                  </div>
-
-                  {/* Model */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Model *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={entry.model}
-                      onChange={(e) => handleChange(entry.id, 'model', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="e.g. City"
-                    />
-                  </div>
-
-                  {/* Insurance Agent */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Insurance Agent *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={entry.insurance_agent}
-                      onChange={(e) => handleChange(entry.id, 'insurance_agent', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="Agent name"
-                    />
-                  </div>
-
-                  {/* Premium Paid */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Premium Paid *
+                      Total Value *
                     </label>
                     <input
                       type="number"
                       required
-                      value={entry.premium_paid}
-                      onChange={(e) => handleChange(entry.id, 'premium_paid', e.target.value)}
+                      value={entry.total_value}
+                      onChange={(e) => handleChange(entry.id, 'total_value', e.target.value)}
                       className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="Premium amount"
+                      placeholder="e.g. 500000"
                     />
-                  </div>
-
-                  {/* Period From */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Period From *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={entry.period_from}
-                      onChange={(e) => handleChange(entry.id, 'period_from', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                    />
-                  </div>
-
-                  {/* Period To */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Period To *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={entry.period_to}
-                      onChange={(e) => handleChange(entry.id, 'period_to', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                    />
-                  </div>
-
-                  {/* Add On */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Add On
-                    </label>
-                    <input
-                      type="text"
-                      value={entry.add_on}
-                      onChange={(e) => handleChange(entry.id, 'add_on', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="e.g. Zero Dep"
-                    />
-                  </div>
-
-                  {/* Policy Link */}
-                  <div className="md:col-span-2 lg:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Policy Link
-                    </label>
-                    <input
-                      type="text"
-                      value={entry.policy_link}
-                      onChange={(e) => handleChange(entry.id, 'policy_link', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="https://..."
-                    />
-                  </div>
-
-                  {/* Concern Person Name */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Concern Person Name
-                    </label>
-                    <input
-                      type="text"
-                      value={entry.concern_person_name}
-                      onChange={(e) => handleChange(entry.id, 'concern_person_name', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="Name (Optional)"
-                    />
-                  </div>
-
-                  {/* Concern Person Mobile */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Concern Mobile
-                    </label>
-                    <input
-                      type="text"
-                      value={entry.concern_person_mobile}
-                      onChange={(e) => handleChange(entry.id, 'concern_person_mobile', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="Mobile No (Optional)"
-                    />
-                  </div>
-
-                  {/* Concern Person Department */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Concern Department
-                    </label>
-                    <input
-                      type="text"
-                      value={entry.concern_person_department}
-                      onChange={(e) => handleChange(entry.id, 'concern_person_department', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="Department (Optional)"
-                    />
-                  </div>
-
-                  {/* Need Renewal & Date */}
-                  <div className="flex gap-3 items-center p-2 rounded-lg border border-gray-100 bg-gray-50/50">
-                    <label className="flex gap-2 items-center cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                        checked={entry.need_renewal}
-                        onChange={(e) => handleChange(entry.id, 'need_renewal', e.target.checked)}
-                      />
-                      <span className="text-xs font-semibold text-gray-700">
-                        Need Renewal
-                      </span>
-                    </label>
-
-                    {entry.need_renewal && (
-                      <div className="flex-1">
-                        <input
-                          type="date"
-                          required={entry.need_renewal}
-                          className="w-full p-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium"
-                          value={entry.renewal_date}
-                          onChange={(e) => handleChange(entry.id, 'renewal_date', e.target.value)}
-                        />
-                      </div>
-                    )}
                   </div>
 
                   {/* File Upload */}
                   <div className="md:col-span-2 lg:col-span-3">
                     <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Upload Policy File
+                      Upload Work Order Document
                     </label>
                     <div className="relative flex items-center gap-3">
                       <input
@@ -592,7 +417,7 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
             className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 hover:border-indigo-500 text-gray-500 hover:text-indigo-600 font-semibold rounded-xl transition bg-white"
           >
             <Plus size={16} />
-            Add Another Vehicle
+            Add Another Work Order
           </button>
         </div>
 
@@ -607,7 +432,7 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
             Cancel
           </button>
           <button
-            form="vehicle-insurance-form"
+            form="work-orders-form"
             type="submit"
             disabled={isSubmitting}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition text-sm"
@@ -620,7 +445,7 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
             ) : (
               <>
                 <Save size={18} />
-                Save Insurance
+                Save Work Order
               </>
             )}
           </button>
@@ -630,4 +455,4 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
   );
 };
 
-export default AddVehicleInsurance;
+export default AddWorkOrders;
