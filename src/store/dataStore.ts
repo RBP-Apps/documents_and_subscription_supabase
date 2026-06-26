@@ -72,6 +72,7 @@ export interface LoanItem {
   id: string;
   Timestamp: string;
   sn: string; // SN-xxx
+  companyName?: string;
   loanName: string;
   bankName: string;
   amount: string;

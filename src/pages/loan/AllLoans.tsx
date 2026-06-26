@@ -44,6 +44,7 @@ const AllLoans = () => {
                 id: item.id.toString(),
                 Timestamp: item.timestamp || item.created_at || new Date().toISOString(),
                 sn: item.serial_no || '',
+                companyName: item.company_name || '',
                 loanName: item.loan_name || '',
                 bankName: item.bank_name || '',
                 amount: item.amount?.toString() || '',
@@ -81,7 +82,8 @@ const AllLoans = () => {
 
     const filteredData = loans.filter(item => {
         const matchesSearch = item.bankName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.loanName.toLowerCase().includes(searchTerm.toLowerCase());
+            item.loanName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (item.companyName && item.companyName.toLowerCase().includes(searchTerm.toLowerCase()));
 
         const matchesBank = filterBank ? item.bankName === filterBank : true;
 
@@ -158,6 +160,7 @@ const AllLoans = () => {
                                     <thead className="sticky top-0 z-20 bg-gray-50">
                                         <tr className="text-xs uppercase text-gray-500 font-bold tracking-wider">
                                             <th className="px-4 py-4 border-b border-gray-100">Serial No.</th>
+                                            <th className="px-4 py-4 border-b border-gray-100">Company Name</th>
                                             <th className="px-4 py-4 border-b border-gray-100">Loan Name</th>
                                             <th className="px-4 py-4 border-b border-gray-100">Bank Name</th>
                                             <th className="px-4 py-4 border-b border-gray-100 text-right">Amount</th>
@@ -173,6 +176,7 @@ const AllLoans = () => {
                                         {filteredData.map((item) => (
                                             <tr key={item.id} className="hover:bg-indigo-50/30 transition-colors group/row">
                                                 <td className="px-4 py-4 font-mono text-xs font-semibold text-indigo-600">{item.sn}</td>
+                                                <td className="px-4 py-4 font-semibold text-gray-900">{item.companyName}</td>
                                                 <td className="px-4 py-4 font-semibold text-gray-900">{item.loanName}</td>
                                                 <td className="px-4 py-4">
                                                     <div className="flex items-center gap-2 text-gray-700">
@@ -222,6 +226,7 @@ const AllLoans = () => {
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-gray-900 text-lg leading-tight">{item.loanName}</h3>
+                                                {item.companyName && <p className="text-xs text-indigo-600 font-semibold mt-0.5">{item.companyName}</p>}
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{item.sn}</span>
                                                     <span className="text-xs text-gray-500 font-medium">{item.bankName}</span>

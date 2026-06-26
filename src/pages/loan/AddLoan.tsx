@@ -12,6 +12,7 @@ interface AddLoanProps {
 const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
   const { addLoan } = useDataStore();
   const [formData, setFormData] = useState({
+    companyName: '',
     loanName: '',
     bankName: '',
     amount: '',
@@ -99,6 +100,7 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
 
       const rowData = {
         serial_no: nextSn,
+        company_name: formData.companyName,
         loan_name: formData.loanName,
         bank_name: formData.bankName,
         amount: formData.amount ? parseFloat(formData.amount.toString().replace(/,/g, '').replace('₹', '').trim()) : 0,
@@ -136,6 +138,7 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
       toast.success(`Loan added successfully! Serial No: ${serverSN}`);
       onClose();
       setFormData({
+        companyName: '',
         loanName: '',
         bankName: '',
         amount: '',
@@ -173,6 +176,20 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
         {/* Modal Body */}
         <div className="p-6 md:p-8">
           <form id="add-loan-form" onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Company Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                className="w-full p-2.5 shadow-input border-none rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                value={formData.companyName}
+                onChange={e => setFormData({ ...formData, companyName: e.target.value })}
+                placeholder="e.g. Acme Corp"
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Loan Name</label>

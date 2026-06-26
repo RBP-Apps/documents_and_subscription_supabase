@@ -54,6 +54,7 @@ const Foreclosure = () => {
                 id: item.id.toString(),
                 Timestamp: item.timestamp || item.created_at || new Date().toISOString(),
                 sn: item.serial_no || '',
+                companyName: item.company_name || '',
                 loanName: item.loan_name || '',
                 bankName: item.bank_name || '',
                 amount: item.amount?.toString() || '',
@@ -93,7 +94,8 @@ const Foreclosure = () => {
         loan.sn?.startsWith('SN-') &&
         (
             loan.bankName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            loan.loanName.toLowerCase().includes(searchTerm.toLowerCase())
+            loan.loanName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (loan.companyName && loan.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
         )
     );
 
@@ -103,7 +105,8 @@ const Foreclosure = () => {
         (loan.actual1 && loan.actual1.trim() !== "") &&
         (
             loan.bankName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            loan.loanName.toLowerCase().includes(searchTerm.toLowerCase())
+            loan.loanName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (loan.companyName && loan.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
         )
     );
 
@@ -234,6 +237,7 @@ const Foreclosure = () => {
                                     <tr className="bg-gray-50/50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
                                         <th className="p-4">Action</th>
                                         <th className="p-4">Serial No.</th>
+                                        <th className="p-4">Company Name</th>
                                         <th className="p-4">Loan Name</th>
                                         <th className="p-4">Bank Name</th>
                                         <th className="p-4">Amount</th>
@@ -256,6 +260,7 @@ const Foreclosure = () => {
                                                 </button>
                                             </td>
                                             <td className="p-4 font-medium text-gray-900">{item.sn}</td>
+                                            <td className="p-4 font-medium text-gray-900">{item.companyName}</td>
                                             <td className="p-4 font-medium text-gray-900">{item.loanName}</td>
                                             <td className="p-4 text-gray-600">{item.bankName}</td>
                                             <td className="p-4 text-gray-900 font-bold whitespace-nowrap">{formatCurrency(item.amount)}</td>
@@ -289,6 +294,7 @@ const Foreclosure = () => {
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-gray-900">{item.loanName}</h3>
+                                            {item.companyName && <p className="text-xs text-indigo-600 font-semibold">{item.companyName}</p>}
                                             <p className="text-xs text-gray-500 mt-0.5">{item.bankName} • {item.sn}</p>
                                         </div>
                                     </div>
@@ -347,6 +353,7 @@ const Foreclosure = () => {
                                 <thead>
                                     <tr className="bg-gray-50/50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
                                         <th className="p-4">Serial No.</th>
+                                        <th className="p-4">Company Name</th>
                                         <th className="p-4">Loan Name</th>
                                         <th className="p-4">Bank Name</th>
                                         <th className="p-4">Amount</th>
@@ -361,6 +368,7 @@ const Foreclosure = () => {
                                     {historyLoans.map((item) => (
                                         <tr key={item.id} className="hover:bg-gray-50/80 transition-colors">
                                             <td className="p-4 font-medium text-gray-900">{item.sn}</td>
+                                            <td className="p-4 font-medium text-gray-900">{item.companyName}</td>
                                             <td className="p-4 font-medium text-gray-900">{item.loanName}</td>
                                             <td className="p-4 text-gray-600">{item.bankName}</td>
                                             <td className="p-4 text-gray-900 font-bold whitespace-nowrap">{formatCurrency(item.amount)}</td>
@@ -404,6 +412,7 @@ const Foreclosure = () => {
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-gray-900">{item.loanName}</h3>
+                                            {item.companyName && <p className="text-xs text-indigo-600 font-semibold">{item.companyName}</p>}
                                             <p className="text-xs text-gray-500 mt-0.5">{item.bankName} • {item.sn}</p>
                                         </div>
                                     </div>
@@ -465,6 +474,10 @@ const Foreclosure = () => {
                                 <div>
                                     <span className="block text-gray-500 text-xs uppercase font-semibold mb-1">Serial No.</span>
                                     <span className="font-medium text-gray-900">{selectedLoan.sn}</span>
+                                </div>
+                                <div>
+                                    <span className="block text-gray-500 text-xs uppercase font-semibold mb-1">Company Name</span>
+                                    <span className="font-medium text-gray-900">{selectedLoan.companyName || 'N/A'}</span>
                                 </div>
                                 <div>
                                     <span className="block text-gray-500 text-xs uppercase font-semibold mb-1">Loan Name</span>

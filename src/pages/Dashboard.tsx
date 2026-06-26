@@ -96,6 +96,7 @@ const Dashboard = () => {
                 const formattedLoans = (loansData || []).map((item) => ({
                     id: item.id.toString(),
                     sn: item.serial_no || '',
+                    companyName: item.company_name || '',
                     loanName: item.loan_name || '',
                     bankName: item.bank_name || '',
                     amount: item.amount?.toString() || '',
