@@ -240,5 +240,25 @@ create table public."BG" (
 );
 
 
+create table public.tenders (
+  id bigserial primary key,
+  timestamp timestamp without time zone default now(),
+  serial_no text,
+  name_of_person text,
+  tender_name text,
+  state_name text,
+  name_of_department text,
+  firm_name text,
+  tender_details text,
+  tender_capacity text,
+  tender_value numeric,
+  tender_start_date date,
+  tender_end_date date,
+  nit_file_upload text,
+  created_at timestamp without time zone default now()
+);
+
+
+
 
 

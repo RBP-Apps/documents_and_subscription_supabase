@@ -53,13 +53,7 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
     },
   ]);
 
-  const [companies, setCompanies] = useState([
-    "Botivate",
-    "Tata Insurance",
-    "Company A",
-    "Company B",
-    "Company C",
-  ]);
+  const [companies, setCompanies] = useState<string[]>([]);
 
   const typeOptions = useMemo(() => {
     const local = masterData?.map((m) => m.documentType) || [];
@@ -92,9 +86,13 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
         const cats = (rows || [])
           .map((r) => r.category)
           .filter((v) => typeof v === "string" && v.trim().length > 0);
+        const comps = (rows || [])
+          .map((r) => r.company_name)
+          .filter((v) => typeof v === "string" && v.trim().length > 0);
 
         setRemoteDocTypes(Array.from(new Set(docTypes as string[])));
         setRemoteCategories(Array.from(new Set(cats as string[])));
+        setCompanies(Array.from(new Set(comps as string[])));
       } catch (err) {
         console.error(err);
       }
@@ -290,6 +288,20 @@ const AddDocument: React.FC<AddDocumentProps> = ({ isOpen, onClose }) => {
               document_type: entry.documentType,
               category: entry.category,
             }]);
+          }
+        }
+
+        // Save new company name to Supabase master table if it doesn't exist
+        if (entry.companyName) {
+          const companyExists = companies.some(
+            (c) => c.toLowerCase() === entry.companyName.toLowerCase()
+          );
+          if (!companyExists) {
+            await supabase.from("master").insert([{
+              company_name: entry.companyName
+            }]);
+            // Update local companies list so subsequent entries in the same form submission can use it
+            setCompanies((prev) => [...prev, entry.companyName]);
           }
         }
 

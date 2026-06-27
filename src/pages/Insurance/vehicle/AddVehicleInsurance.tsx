@@ -33,6 +33,8 @@ interface VehicleInsuranceEntry {
   renewal_date: string;
   file: File | null;
   fileName: string;
+  rcFile: File | null;
+  rcFileName: string;
   concern_person_name: string;
   concern_person_mobile: string;
   concern_person_department: string;
@@ -60,6 +62,8 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
       renewal_date: '',
       file: null,
       fileName: '',
+      rcFile: null,
+      rcFileName: '',
       concern_person_name: '',
       concern_person_mobile: '',
       concern_person_department: '',
@@ -98,6 +102,28 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
     }
   };
 
+  const handleRcFileChange = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error('File size must be less than 50MB');
+        e.target.value = '';
+        return;
+      }
+      setEntries((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                rcFile: file,
+                rcFileName: file.name,
+              }
+            : item
+        )
+      );
+    }
+  };
+
   const addEntry = () => {
     if (entries.length >= 10) {
       toast.error('You can add maximum 10 insurance records at a time.');
@@ -123,6 +149,8 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
       renewal_date: lastEntry.renewal_date || '',
       file: null, // do not clone file
       fileName: '',
+      rcFile: null,
+      rcFileName: '',
       concern_person_name: lastEntry.concern_person_name || '',
       concern_person_mobile: lastEntry.concern_person_mobile || '',
       concern_person_department: lastEntry.concern_person_department || '',
@@ -158,6 +186,8 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
         renewal_date: '',
         file: null,
         fileName: '',
+        rcFile: null,
+        rcFileName: '',
         concern_person_name: '',
         concern_person_mobile: '',
         concern_person_department: '',
@@ -183,11 +213,15 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
     setIsSubmitting(true);
 
     try {
-      const uploadResults: Array<{ index: number; fileUrl: string | null }> = [];
+      const uploadResults: Array<{ index: number; fileUrl: string | null; rcUrl: string | null }> = [];
 
       // 1. Upload files first
       for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
+        let fileUrl: string | null = null;
+        let rcUrl: string | null = null;
+
+        // Policy file upload
         if (entry.file) {
           try {
             const cleanFileName = entry.fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -201,28 +235,54 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
               });
 
             if (uploadError) {
-              console.error(`Upload failed for file ${i + 1}:`, uploadError);
-              uploadResults.push({ index: i, fileUrl: null });
-              toast.error(`File ${entry.fileName} upload failed. Saving without file.`);
+              console.error(`Upload failed for policy file ${i + 1}:`, uploadError);
+              toast.error(`Policy File ${entry.fileName} upload failed.`);
             } else {
               const { data: { publicUrl } } = supabase.storage
                 .from('insurance')
                 .getPublicUrl(data.path);
-              uploadResults.push({ index: i, fileUrl: publicUrl });
+              fileUrl = publicUrl;
             }
           } catch (uploadErr) {
-            console.error(`Upload error for file ${i + 1}:`, uploadErr);
-            uploadResults.push({ index: i, fileUrl: null });
-            toast.error(`Failed to upload ${entry.fileName}, saving without file.`);
+            console.error(`Upload error for policy file ${i + 1}:`, uploadErr);
           }
-        } else {
-          uploadResults.push({ index: i, fileUrl: null });
         }
+
+        // RC file upload
+        if (entry.rcFile) {
+          try {
+            const cleanFileName = entry.rcFileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+            const filePath = `vehicle_rc/${Date.now()}_${cleanFileName}`;
+
+            const { data, error: uploadError } = await supabase.storage
+              .from('insurance')
+              .upload(filePath, entry.rcFile, {
+                cacheControl: '3600',
+                upsert: false,
+              });
+
+            if (uploadError) {
+              console.error(`Upload failed for RC file ${i + 1}:`, uploadError);
+              toast.error(`RC File ${entry.rcFileName} upload failed.`);
+            } else {
+              const { data: { publicUrl } } = supabase.storage
+                .from('insurance')
+                .getPublicUrl(data.path);
+              rcUrl = publicUrl;
+            }
+          } catch (uploadErr) {
+            console.error(`Upload error for RC file ${i + 1}:`, uploadErr);
+          }
+        }
+
+        uploadResults.push({ index: i, fileUrl, rcUrl });
       }
 
       // 2. Insert records
       for (const [index, entry] of entries.entries()) {
-        const fileUrl = uploadResults.find((r) => r.index === index)?.fileUrl || null;
+        const result = uploadResults.find((r) => r.index === index);
+        const fileUrl = result?.fileUrl || null;
+        const rcUrl = result?.rcUrl || null;
 
         const { data: inserted, error: insertError } = await supabase
           .from('vehicle_insurance')
@@ -239,6 +299,7 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
               add_on: entry.add_on || null,
               policy_link: entry.policy_link || null,
               file_url: fileUrl,
+              rc_url: rcUrl,
               need_renewal: entry.need_renewal,
               renewal_date: entry.need_renewal && entry.renewal_date ? entry.renewal_date : null,
               concern_person_name: entry.concern_person_name || null,
@@ -577,6 +638,36 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
                         </div>
                       ) : (
                         <span className="text-xs text-gray-400">No file chosen</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* RC File Upload */}
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Upload Registration Certificate (RC)
+                    </label>
+                    <div className="relative flex items-center gap-3">
+                      <input
+                        type="file"
+                        id={`rc-file-upload-${entry.id}`}
+                        onChange={(e) => handleRcFileChange(entry.id, e)}
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                      />
+                      <label
+                        htmlFor={`rc-file-upload-${entry.id}`}
+                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:border-indigo-500 hover:text-indigo-600 bg-white rounded-lg cursor-pointer text-xs font-semibold shadow-sm transition"
+                      >
+                        <Upload size={14} />
+                        Choose RC File
+                      </label>
+                      {entry.rcFileName ? (
+                        <div className="text-xs text-green-600 font-medium truncate max-w-md">
+                          {entry.rcFileName}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">No RC file chosen</span>
                       )}
                     </div>
                   </div>

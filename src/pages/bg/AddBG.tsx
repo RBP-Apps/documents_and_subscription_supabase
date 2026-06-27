@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useDataStore, { BGItem } from '../../store/dataStore';
 import { toast } from 'react-hot-toast';
 import { X, Save, Loader2, FileText, Calendar, Building, IndianRupee } from 'lucide-react';
 import supabase from '../../utils/supabase';
+import SearchableInput from '../../components/SearchableInput';
 
 interface AddBGProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface AddBGProps {
 
 const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
   const { addBG } = useDataStore();
+  const [companies, setCompanies] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     bgName: '',
     bgNo: '',
@@ -25,6 +27,34 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let mounted = true;
+    (async () => {
+      try {
+        const { data: rows, error } = await supabase
+          .from("master")
+          .select("company_name");
+
+        if (error) throw error;
+        if (!mounted) return;
+
+        const comps = (rows || [])
+          .map((r) => r.company_name)
+          .filter((v) => typeof v === "string" && v.trim().length > 0);
+
+        setCompanies(Array.from(new Set(comps as string[])));
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -179,20 +209,13 @@ const AddBG: React.FC<AddBGProps> = ({ isOpen, onClose }) => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <FileText size={14} className="text-indigo-600" />
-                      BG Name <span className="text-red-500">*</span>
-                    </div>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full p-2.5 shadow-input border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-gray-50/50"
+                  <SearchableInput
+                    label="BG Name(Company Name)"
                     value={formData.bgName}
-                    onChange={e => setFormData({ ...formData, bgName: e.target.value })}
-                    placeholder="e.g. Performance Guarantee"
-                    disabled={isSubmitting}
+                    onChange={value => setFormData(prev => ({ ...prev, bgName: value }))}
+                    options={companies}
+                    placeholder="Select or enter Company Name"
+                    required
                   />
                 </div>
                 <div>

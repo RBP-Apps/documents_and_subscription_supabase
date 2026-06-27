@@ -44,9 +44,9 @@ const AllBG = () => {
                 id: item.id.toString(),
                 Timestamp: item.timestamp || item.created_at || new Date().toISOString(),
                 sn: item.serial_no || '',
-                bgName: item.bg_name || '',
-                bgNo: item.bg_no || '',
-                bankName: item.bank_name || '',
+                bgName: (item.bg_name || '').trim(),
+                bgNo: (item.bg_no || '').trim(),
+                bankName: (item.bank_name || '').trim(),
                 amount: item.amount?.toString() || '',
                 startDate: item.bg_start_date || '',
                 endDate: item.expiry_date || '',
@@ -70,11 +70,15 @@ const AllBG = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     const filteredData = bgs.filter(item => {
-        const matchesSearch = item.bankName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.bgName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.bgNo.toLowerCase().includes(searchTerm.toLowerCase());
+        const bankName = item.bankName || '';
+        const bgName = item.bgName || '';
+        const bgNo = item.bgNo || '';
 
-        const matchesBank = filterBank ? item.bankName === filterBank : true;
+        const matchesSearch = bankName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            bgName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            bgNo.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesBank = filterBank ? bankName === filterBank : true;
 
         return matchesSearch && matchesBank;
     });
@@ -149,7 +153,7 @@ const AllBG = () => {
                                     <thead className="sticky top-0 z-20 bg-gray-50">
                                         <tr className="text-xs uppercase text-gray-500 font-bold tracking-wider">
                                             <th className="px-4 py-4 border-b border-gray-100">Serial No.</th>
-                                            <th className="px-4 py-4 border-b border-gray-100">BG Name</th>
+                                            <th className="px-4 py-4 border-b border-gray-100">BG Name (Company Name)</th>
                                             <th className="px-4 py-4 border-b border-gray-100">BG No</th>
                                             <th className="px-4 py-4 border-b border-gray-100">Bank Name</th>
                                             <th className="px-4 py-4 border-b border-gray-100 text-right">Amount</th>

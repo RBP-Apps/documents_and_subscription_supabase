@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FileText, CreditCard, Shield, Landmark, Mail, FolderOpen } from 'lucide-react';
 import AllDocuments from './document/AllDocuments';
 import WorkOrders from './ProjectDocuments/WorkOrders/WorkOrders';
+import Tenders from './ProjectDocuments/Tenders/Tenders';
 import AllSubscriptions from './subscription/AllSubscriptions';
 import AllBG from './bg/AllBG';
 import VehicleInsurance from './Insurance/vehicle/vehicle';
@@ -261,11 +262,7 @@ const ResourceManager = () => {
         ) : (
           <div>
             {activeProjectSubTab === 'workorders' && <WorkOrders />}
-            {activeProjectSubTab === 'tenders' && (
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-500">
-                📁 Project Documents - Tenders (Coming Soon)
-              </div>
-            )}
+            {activeProjectSubTab === 'tenders' && <Tenders />}
             {activeProjectSubTab === 'testreports' && (
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-500">
                 📁 Project Documents - Test Reports (Coming Soon)

@@ -1,9 +1,8 @@
-// Vehicle.tsx (Updated)
 import { useState, useEffect, useRef } from 'react';
 import {
   Plus,
   Search,
-  Car,
+  Briefcase,
   Edit,
   Trash2,
   FileText,
@@ -19,69 +18,62 @@ import { sendWhatsAppMessage } from '../../../utils/whatsappService';
 import { toast } from 'react-hot-toast';
 import supabase from '../../../utils/supabase';
 import useHeaderStore from '../../../store/headerStore';
-import AddVehicleInsurance from './AddVehicleInsurance';
-import EditVehicleInsurance from './EditVehicleInsurance';
+import AddTenders from './AddTenders';
+import EditTenders from './EditTenders';
 
-interface VehicleInsurance {
+export interface Tender {
   id: number;
   serial_no: string;
-  company_name: string;
-  registration_no: string;
-  make: string;
-  model: string;
-  insurance_agent: string;
-  period_from: string;
-  period_to: string;
-  premium_paid: number;
-  add_on: string;
-  policy_link: string;
-  file_url?: string;
-  rc_url?: string;
+  name_of_person: string;
+  tender_name: string;
+  state_name: string;
+  name_of_department: string;
+  firm_name: string;
+  tender_details: string;
+  tender_capacity: string;
+  tender_value: number;
+  tender_start_date: string;
+  tender_end_date: string;
+  nit_file_upload?: string;
   created_at: string;
-  need_renewal?: boolean;
-  renewal_date?: string;
-  concern_person_name?: string;
-  concern_person_mobile?: string;
-  concern_person_department?: string;
 }
 
-const Vehicle = () => {
+const Tenders = () => {
   const { setTitle } = useHeaderStore();
 
-  const [data, setData] = useState<VehicleInsurance[]>([]);
+  const [data, setData] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterCompany, setFilterCompany] = useState('');
+  const [filterFirm, setFilterFirm] = useState('');
+  const [filterState, setFilterState] = useState('');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedInsurance, setSelectedInsurance] = useState<VehicleInsurance | null>(null);
+  const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
 
   const [shareOpen, setShareOpen] = useState(false);
   const [shareType, setShareType] = useState<'email' | 'whatsapp' | 'both' | null>(null);
-  const [selectedItem, setSelectedItem] = useState<VehicleInsurance | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Tender | null>(null);
 
   useEffect(() => {
-    setTitle('Vehicle Insurance');
-    fetchVehicleInsurance();
-  }, []);
+    setTitle('Tenders');
+    fetchTenders();
+  }, [setTitle]);
 
-  const fetchVehicleInsurance = async () => {
+  const fetchTenders = async () => {
     try {
       setLoading(true);
-
       const { data, error } = await supabase
-        .from('vehicle_insurance')
+        .from('tenders')
         .select('*')
         .order('id', { ascending: false });
 
       if (error) throw error;
-
       setData(data || []);
     } catch (error) {
       console.error(error);
-      toast.error('Failed to load vehicle insurance');
+      toast.error('Failed to load tenders');
     } finally {
       setLoading(false);
     }
@@ -96,61 +88,64 @@ const Vehicle = () => {
 
     try {
       const { error } = await supabase
-        .from('vehicle_insurance')
+        .from('tenders')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
 
       toast.success('Deleted Successfully');
-      fetchVehicleInsurance();
+      fetchTenders();
     } catch (error) {
       console.error(error);
       toast.error('Delete failed');
     }
   };
 
-  const handleViewFile = (item: VehicleInsurance) => {
-    const fileLink = item.file_url || item.policy_link;
-    
+  const handleViewFile = (item: Tender) => {
+    const fileLink = item.nit_file_upload;
     if (fileLink) {
       window.open(fileLink, '_blank');
     } else {
-      toast.error('No file or policy link available');
+      toast.error('No uploaded document available');
     }
   };
 
-  const handleEdit = (item: VehicleInsurance) => {
-    setSelectedInsurance(item);
+  const handleEdit = (item: Tender) => {
+    setSelectedTender(item);
     setIsEditModalOpen(true);
   };
 
   const filteredData = data.filter((item) => {
     const matchesSearch =
-      item.company_name
+      item.tender_name
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
-      item.registration_no
+      item.name_of_person
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
-      item.make
+      item.name_of_department
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
-      item.model
+      item.firm_name
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
-      item.concern_person_name
+      item.state_name
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
-      item.concern_person_mobile
+      item.serial_no
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase());
 
-    const matchesCompany = filterCompany
-      ? item.company_name === filterCompany
+    const matchesFirm = filterFirm
+      ? item.firm_name === filterFirm
       : true;
 
-    return matchesSearch && matchesCompany;
+    const matchesState = filterState
+      ? item.state_name === filterState
+      : true;
+
+    return matchesSearch && matchesFirm && matchesState;
   });
 
   const formatDate = (date: string) => {
@@ -167,10 +162,18 @@ const Vehicle = () => {
     }).format(amount);
   };
 
-  const companies = [
+  const firms = [
     ...new Set(
       data
-        .map((item) => item.company_name)
+        .map((item) => item.firm_name)
+        .filter(Boolean)
+    ),
+  ];
+
+  const states = [
+    ...new Set(
+      data
+        .map((item) => item.state_name)
         .filter(Boolean)
     ),
   ];
@@ -186,18 +189,17 @@ const Vehicle = () => {
   return (
     <>
       <div className="space-y-4">
-
-        {/* Header - UI Refinement */}
+        {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
                 <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Car className="text-indigo-600" size={24} />
-                  Vehicle Insurance
+                  <Briefcase className="text-indigo-600" size={24} />
+                  Tenders
                 </h1>
                 <p className="text-gray-500 text-xs mt-1">
-                  Manage all vehicle insurance records
+                  Manage all Project Tender records
                 </p>
               </div>
 
@@ -206,7 +208,7 @@ const Vehicle = () => {
                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm hover:shadow-md"
               >
                 <Plus size={18} />
-                Add New Insurance
+                Add Tender
               </button>
             </div>
           </div>
@@ -221,7 +223,7 @@ const Vehicle = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Search by company, registration, make or model..."
+                  placeholder="Search by serial no, tender name, firm, department, state..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-full border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
@@ -229,14 +231,27 @@ const Vehicle = () => {
               </div>
 
               <select
-                value={filterCompany}
-                onChange={(e) => setFilterCompany(e.target.value)}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition min-w-[200px]"
+                value={filterFirm}
+                onChange={(e) => setFilterFirm(e.target.value)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition min-w-[160px]"
               >
-                <option value="">All Companies</option>
-                {companies.map((company) => (
-                  <option key={company} value={company}>
-                    {company}
+                <option value="">All Firms</option>
+                {firms.map((firm) => (
+                  <option key={firm} value={firm}>
+                    {firm}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filterState}
+                onChange={(e) => setFilterState(e.target.value)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition min-w-[160px]"
+              >
+                <option value="">All States</option>
+                {states.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
                   </option>
                 ))}
               </select>
@@ -244,38 +259,35 @@ const Vehicle = () => {
           </div>
         </div>
 
-        {/* Desktop Table - UI Refinement */}
+        {/* Desktop Table View */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-           <div className="overflow-auto max-h-[400px]">
-            <table className="w-full">
-               <thead className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
+          <div className="overflow-auto max-h-[400px]">
+            <table className="w-full text-left border-collapse">
+              <thead className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                 <tr className="text-xs uppercase text-gray-600 font-semibold tracking-wider">
-                  <th className="px-6 py-4 text-left">S.NO</th>
+                  <th className="px-6 py-4">S.NO</th>
                   <th className="px-6 py-4 text-center">ACTION</th>
                   <th className="px-6 py-4 text-center">SHARE</th>
-                  <th className="px-6 py-4 text-center">POLICY FILE</th>
-                  <th className="px-6 py-4 text-center">RC FILE</th>
-                  <th className="px-6 py-4 text-left">COMPANY NAME</th>
-                  <th className="px-6 py-4 text-left">REGISTRATION NO.</th>
-                  <th className="px-6 py-4 text-left">MAKE</th>
-                  <th className="px-6 py-4 text-left">MODEL</th>
-                  <th className="px-6 py-4 text-left">INSURANCE AGENT</th>
-                  <th className="px-6 py-4 text-left">PERIOD</th>
-                  <th className="px-6 py-4 text-left">RENEWAL DATE</th>
-                  <th className="px-6 py-4 text-right">PREMIUM</th>
-                  <th className="px-6 py-4 text-left">ADD ON</th>
-                  <th className="px-6 py-4 text-left">CONCERN PERSON</th>
-                  <th className="px-6 py-4 text-left">CONCERN MOBILE</th>
-                  <th className="px-6 py-4 text-left">CONCERN DEPT</th>
+                  <th className="px-6 py-4 text-center">NIT FILE</th>
+                  <th className="px-6 py-4">NAME OF PERSON</th>
+                  <th className="px-6 py-4">TENDER NAME</th>
+                  <th className="px-6 py-4">STATE</th>
+                  <th className="px-6 py-4">DEPARTMENT</th>
+                  <th className="px-6 py-4">FIRM NAME</th>
+                  <th className="px-6 py-4">DETAILS</th>
+                  <th className="px-6 py-4">CAPACITY</th>
+                  <th className="px-6 py-4 text-right">VALUE</th>
+                  <th className="px-6 py-4">START DATE</th>
+                  <th className="px-6 py-4">END DATE</th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 text-sm">
                 {filteredData.map((item) => (
                   <tr key={item.id} className="hover:bg-indigo-50/30 transition">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-indigo-600">
-                        {item.serial_no || `VEH-${item.id}`}
+                        {item.serial_no || `TND-${item.id}`}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -306,8 +318,8 @@ const Vehicle = () => {
                         }}
                       />
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      {(item.file_url || item.policy_link) ? (
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                      {item.nit_file_upload ? (
                         <button
                           onClick={() => handleViewFile(item)}
                           className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition text-sm font-medium"
@@ -316,79 +328,48 @@ const Vehicle = () => {
                           View
                         </button>
                       ) : (
-                        <span className="text-gray-400 text-sm">-</span>
+                        <span className="text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      {item.rc_url ? (
-                        <a
-                          href={item.rc_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition text-sm font-medium"
-                        >
-                          <FileText size={14} />
-                          View
-                        </a>
-                      ) : (
-                        <span className="text-gray-400 text-sm">-</span>
-                      )}
+                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                      {item.name_of_person || '-'}
                     </td>
-                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap text-sm">
-                      {item.company_name}
+                    <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
+                      {item.tender_name || '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 text-sm">
-                      {item.registration_no}
+                    <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
+                      {item.state_name || '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 text-sm">
-                      {item.make}
+                    <td className="px-6 py-4 text-gray-600">
+                      {item.name_of_department || '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 text-sm">
-                      {item.model}
+                    <td className="px-6 py-4 text-gray-900 font-semibold whitespace-nowrap">
+                      {item.firm_name || '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 text-sm">
-                      {item.insurance_agent}
+                    <td className="px-6 py-4 text-gray-500 italic max-w-[200px] truncate" title={item.tender_details}>
+                      {item.tender_details || '-'}
                     </td>
-                    <td className="px-6 py-4 text-xs text-gray-500 whitespace-nowrap">
-                      {formatDate(item.period_from)}
-                      <br />
-                      to
-                      <br />
-                      {formatDate(item.period_to)}
+                    <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
+                      {item.tender_capacity || '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {item.need_renewal ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                          {formatDate(item.renewal_date || '')}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
+                    <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap">
+                      {formatAmount(item.tender_value)}
                     </td>
-                    <td className="px-6 py-4 text-right font-bold text-gray-900 text-sm">
-                      {formatAmount(item.premium_paid)}
+                    <td className="px-6 py-4 text-gray-500 text-xs whitespace-nowrap">
+                      {formatDate(item.tender_start_date)}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 text-sm">
-                      {item.add_on || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 text-sm">
-                      {item.concern_person_name || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 text-sm">
-                      {item.concern_person_mobile || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 text-sm">
-                      {item.concern_person_department || '-'}
+                    <td className="px-6 py-4 text-gray-500 text-xs whitespace-nowrap">
+                      {formatDate(item.tender_end_date)}
                     </td>
                   </tr>
                 ))}
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={17} className="text-center py-12 text-gray-500">
+                    <td colSpan={14} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
-                        <Car size={48} className="text-gray-300" />
-                        <p>No Vehicle Insurance Records Found</p>
+                        <Briefcase size={48} className="text-gray-300" />
+                        <p>No Tender Records Found</p>
                       </div>
                     </td>
                   </tr>
@@ -399,23 +380,27 @@ const Vehicle = () => {
         </div>
       </div>
 
-      <AddVehicleInsurance
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={fetchVehicleInsurance}
-      />
+      {isAddModalOpen && (
+        <AddTenders
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onSuccess={fetchTenders}
+        />
+      )}
 
-      <EditVehicleInsurance
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setSelectedInsurance(null);
-        }}
-        onSuccess={fetchVehicleInsurance}
-        insuranceData={selectedInsurance}
-      />
+      {isEditModalOpen && (
+        <EditTenders
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedTender(null);
+          }}
+          onSuccess={fetchTenders}
+          tenderData={selectedTender}
+        />
+      )}
 
-      <ShareVehicleModal
+      <ShareTenderModal
         isOpen={shareOpen}
         onClose={() => {
           setShareOpen(false);
@@ -433,8 +418,8 @@ const ShareDropdown = ({
   item,
   onShare,
 }: {
-  item: VehicleInsurance;
-  onShare: (type: 'email' | 'whatsapp' | 'both', item: VehicleInsurance) => void;
+  item: Tender;
+  onShare: (type: 'email' | 'whatsapp' | 'both', item: Tender) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -500,14 +485,14 @@ const ShareDropdown = ({
   );
 };
 
-interface ShareVehicleModalProps {
+interface ShareTenderModalProps {
   isOpen: boolean;
   onClose: () => void;
   type: 'email' | 'whatsapp' | 'both' | null;
-  item: VehicleInsurance | null;
+  item: Tender | null;
 }
 
-const ShareVehicleModal: React.FC<ShareVehicleModalProps> = ({
+const ShareTenderModal: React.FC<ShareTenderModalProps> = ({
   isOpen,
   onClose,
   type,
@@ -526,8 +511,8 @@ const ShareVehicleModal: React.FC<ShareVehicleModalProps> = ({
       setRecipientName('');
       setEmail('');
       setWhatsapp('');
-      setSubject(`Sharing Vehicle Insurance: ${item.company_name} (${item.registration_no})`);
-      setMessage(`Please find the link for the shared Vehicle Insurance document: ${item.company_name} (${item.registration_no}).`);
+      setSubject(`Sharing Tender Record: ${item.tender_name} - ${item.firm_name}`);
+      setMessage(`Please find the link for the shared Project Tender document: ${item.tender_name} (${item.firm_name}, ${item.state_name}).`);
       setEmailSent(false);
       setIsSending(false);
     }
@@ -546,31 +531,31 @@ const ShareVehicleModal: React.FC<ShareVehicleModalProps> = ({
       ? rawDigits
       : `91${rawDigits}`;
 
-    const docName = `${item.company_name} Vehicle Insurance (${item.registration_no})`;
-    const docLink = item.file_url || item.policy_link || 'N/A';
+    const docName = `Tender (${item.tender_name} - ${item.firm_name})`;
+    const docLink = item.nit_file_upload || 'N/A';
 
     try {
       await sendWhatsAppMessage({
         to,
         name: recipientName || 'there',
         documentName: docName,
-        category: 'Insurance',
-        company: item.company_name,
-        type: 'Vehicle Insurance',
+        category: 'Project Documents',
+        company: item.firm_name,
+        type: 'Tender',
         link: docLink,
       });
 
-      // Log to Supabase
+      // Log to Supabase Shared_Documents
       const { error } = await supabase.from('Shared_Documents').insert([{
         name: recipientName,
         document_name: docName,
-        document_type: 'Vehicle Insurance',
-        category: 'Insurance',
-        serial_no: item.serial_no || `VEH-${item.id}`,
+        document_type: 'Tender',
+        category: 'Project Documents',
+        serial_no: item.serial_no || `TND-${item.id}`,
         image: docLink !== 'N/A' ? docLink : null,
         share_method: 'WhatsApp',
         number: whatsapp,
-        source_sheet: 'Vehicle Insurance',
+        source_sheet: 'Tenders',
       }]);
 
       if (error) console.error('Error logging WhatsApp share:', error);
@@ -590,8 +575,8 @@ const ShareVehicleModal: React.FC<ShareVehicleModalProps> = ({
       return false;
     }
 
-    const docName = `${item.company_name} Vehicle Insurance (${item.registration_no})`;
-    const docLink = item.file_url || item.policy_link || '';
+    const docName = `Tender (${item.tender_name} - ${item.firm_name})`;
+    const docLink = item.nit_file_upload || '';
 
     try {
       await emailjs.send(
@@ -601,27 +586,27 @@ const ShareVehicleModal: React.FC<ShareVehicleModalProps> = ({
           recipient_name: recipientName,
           email: email,
           document_name: docName,
-          category: 'Insurance',
-          document_type: 'Vehicle Insurance',
+          category: 'Project Documents',
+          document_type: 'Tender',
           document_link: docLink,
           message: message,
-          serial_no: item.serial_no || `VEH-${item.id}`,
-          company: item.company_name || '',
+          serial_no: item.serial_no || `TND-${item.id}`,
+          company: item.firm_name || '',
         },
         'JN3T3k1LsQ0KSOn-A'
       );
 
-      // Log to Supabase
+      // Log to Supabase Shared_Documents
       const { error } = await supabase.from('Shared_Documents').insert([{
         name: recipientName,
         email: email,
         document_name: docName,
-        document_type: 'Vehicle Insurance',
-        category: 'Insurance',
-        serial_no: item.serial_no || `VEH-${item.id}`,
+        document_type: 'Tender',
+        category: 'Project Documents',
+        serial_no: item.serial_no || `TND-${item.id}`,
         image: docLink || null,
         share_method: 'Email',
-        source_sheet: 'Vehicle Insurance',
+        source_sheet: 'Tenders',
       }]);
 
       if (error) console.error('Error logging email share:', error);
@@ -695,13 +680,12 @@ const ShareVehicleModal: React.FC<ShareVehicleModalProps> = ({
 
         {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Document selection preview */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
               Document
             </label>
             <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm text-indigo-700 font-medium truncate">
-              📄 {item.company_name} Vehicle Insurance ({item.registration_no})
+              📄 Tender: {item.tender_name} ({item.firm_name})
             </div>
           </div>
 
@@ -834,4 +818,4 @@ const ShareVehicleModal: React.FC<ShareVehicleModalProps> = ({
   );
 };
 
-export default Vehicle;
+export default Tenders;

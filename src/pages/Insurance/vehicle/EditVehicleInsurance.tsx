@@ -42,6 +42,8 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
 
   const [fileUpload, setFileUpload] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
+  const [rcFileUpload, setRcFileUpload] = useState<File | null>(null);
+  const [rcFileName, setRcFileName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -66,6 +68,8 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
       });
       setFileUpload(null);
       setFileName('');
+      setRcFileUpload(null);
+      setRcFileName('');
     }
   }, [insuranceData, isOpen]);
 
@@ -82,6 +86,19 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
 
     setFileUpload(file);
     setFileName(file.name);
+  };
+
+  const handleRcFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File size must be less than 50MB');
+      return;
+    }
+
+    setRcFileUpload(file);
+    setRcFileName(file.name);
   };
 
   const resetForm = () => {
@@ -105,6 +122,8 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
     });
     setFileUpload(null);
     setFileName('');
+    setRcFileUpload(null);
+    setRcFileName('');
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -119,6 +138,7 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
       setIsSubmitting(true);
 
       let fileUrl = insuranceData.file_url || null;
+      let rcUrl = insuranceData.rc_url || null;
 
       // Upload new file if selected
       if (fileUpload) {
@@ -141,6 +161,27 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
         fileUrl = publicUrl;
       }
 
+      // Upload new RC file if selected
+      if (rcFileUpload) {
+        const cleanFileName = rcFileUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const filePath = `vehicle_rc/${Date.now()}_${cleanFileName}`;
+
+        const { data, error } = await supabase.storage
+          .from('insurance')
+          .upload(filePath, rcFileUpload, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (error) throw error;
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('insurance').getPublicUrl(data.path);
+
+        rcUrl = publicUrl;
+      }
+
       const { error: updateError } = await supabase
         .from('vehicle_insurance')
         .update({
@@ -155,6 +196,7 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
           add_on: formData.add_on || null,
           policy_link: formData.policy_link || null,
           file_url: fileUrl,
+          rc_url: rcUrl,
           need_renewal: formData.need_renewal,
           renewal_date: formData.need_renewal && formData.renewal_date ? formData.renewal_date : null,
           concern_person_name: formData.concern_person_name || null,
@@ -513,6 +555,23 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
                   {fileName && (
                     <div className="mt-2 text-xs text-green-600 font-medium">
                       {fileName}
+                    </div>
+                  )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                    Upload New Registration Certificate (RC) File (Optional)
+                  </label>
+                  <input
+                    type="file"
+                    onChange={handleRcFileChange}
+                    className="w-full p-2 border rounded-lg bg-gray-50/30 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none cursor-pointer"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                  {rcFileName && (
+                    <div className="mt-2 text-xs text-green-600 font-medium">
+                      {rcFileName}
                     </div>
                   )}
                 </div>

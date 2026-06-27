@@ -18,6 +18,7 @@ interface VehicleInsurance {
   add_on: string;
   policy_link: string;
   file_url?: string;
+  rc_url?: string;
   created_at: string;
   need_renewal?: boolean;
   renewal_date?: string;

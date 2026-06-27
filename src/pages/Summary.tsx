@@ -4,6 +4,7 @@ import {
   Download, 
   Search, 
   Calendar, 
+  Building,
   Clock, 
   AlertCircle, 
   CheckCircle2, 
@@ -35,7 +36,7 @@ import * as XLSX from 'xlsx';
 interface DashboardItem {
   id: string;
   sn: string;
-  module: 'document' | 'subscription' | 'insurance';
+  module: 'document' | 'subscription' | 'insurance' | 'bg';
   subType: string;
   name: string;
   category: string;
@@ -63,6 +64,7 @@ interface SummaryData {
   totalDocs: number;
   totalSubs: number;
   totalInsurance: number;
+  totalBgs: number;
   activeRecords: number;
   expiredRecords: number;
   expiringSoon: number;
@@ -90,7 +92,22 @@ interface SummaryData {
   documents: Array<DashboardItem>;
   subscriptions: Array<DashboardItem>;
   insurance: Array<DashboardItem>;
+  bgs: Array<DashboardItem>;
   recentActivities: Array<{ id: string; date: string; type: string; message: string }>;
+
+  // status matrix details
+  docsActive: number;
+  docsExpired: number;
+  docsPendingRenewal: number;
+  subsActive: number;
+  subsExpired: number;
+  subsPendingRenewal: number;
+  insActive: number;
+  insExpired: number;
+  insPendingRenewal: number;
+  bgsActive: number;
+  bgsExpired: number;
+  bgsPendingRenewal: number;
 }
 
 const Summary = () => {
@@ -107,6 +124,7 @@ const Summary = () => {
   const [rawLife, setRawLife] = useState<any[]>([]);
   const [rawFire, setRawFire] = useState<any[]>([]);
   const [rawEmp, setRawEmp] = useState<any[]>([]);
+  const [rawBgs, setRawBgs] = useState<any[]>([]);
   const [rawShares, setRawShares] = useState<any[]>([]);
   const [rawDocRenewals, setRawDocRenewals] = useState<any[]>([]);
   const [rawSubRenewals, setRawSubRenewals] = useState<any[]>([]);
@@ -158,7 +176,7 @@ const Summary = () => {
   const loadCompanyList = async () => {
     try {
       setIsLoading(true);
-      const [docsRes, subsRes, vehRes, healthRes, lifeRes, fireRes, empRes] = await Promise.all([
+      const [docsRes, subsRes, vehRes, healthRes, lifeRes, fireRes, empRes, bgRes] = await Promise.all([
         supabase.from('Add New Document').select('company_name').eq('is_deleted', false),
         supabase.from('create_subscription').select('company_name'),
         supabase.from('vehicle_insurance').select('company_name'),
@@ -166,6 +184,7 @@ const Summary = () => {
         supabase.from('life_insurance').select('company_name'),
         supabase.from('fire_policy').select('company_name'),
         supabase.from('employee_compensation').select('company_name'),
+        supabase.from('BG').select('bg_name'),
       ]);
 
       const companySet = new Set<string>();
@@ -185,6 +204,7 @@ const Summary = () => {
       addNames(lifeRes.data, 'company_name');
       addNames(fireRes.data, 'company_name');
       addNames(empRes.data, 'company_name');
+      addNames(bgRes.data, 'bg_name');
 
       setCompanies(Array.from(companySet).sort());
     } catch (error) {
@@ -240,12 +260,12 @@ const Summary = () => {
       setIsGenerating(true);
 
       // 1. Fetch raw data if it is a new company, else reuse cached values to satisfy performance constraints
-      let dDocs = rawDocs, dSubs = rawSubs, dVeh = rawVeh, dHealth = rawHealth, dLife = rawLife, dFire = rawFire, dEmp = rawEmp;
+      let dDocs = rawDocs, dSubs = rawSubs, dVeh = rawVeh, dHealth = rawHealth, dLife = rawLife, dFire = rawFire, dEmp = rawEmp, dBgs = rawBgs;
       let dShares = rawShares, dDocRen = rawDocRenewals, dSubRen = rawSubRenewals, dVehRen = rawVehRenewals, dHealthRen = rawHealthRenewals, dLifeRen = rawLifeRenewals;
 
       if (cachedCompany !== selectedCompany) {
         const [
-          docsRes, subsRes, vehRes, healthRes, lifeRes, fireRes, empRes,
+          docsRes, subsRes, vehRes, healthRes, lifeRes, fireRes, empRes, bgRes,
           sharesRes, docRenRes, subRenRes, vehRenRes, healthRenRes, lifeRenRes
         ] = await Promise.all([
           supabase.from('Add New Document').select('*').eq('company_name', selectedCompany).eq('is_deleted', false),
@@ -255,6 +275,7 @@ const Summary = () => {
           supabase.from('life_insurance').select('*').eq('company_name', selectedCompany),
           supabase.from('fire_policy').select('*').eq('company_name', selectedCompany),
           supabase.from('employee_compensation').select('*').eq('company_name', selectedCompany),
+          supabase.from('BG').select('*'),
           supabase.from('Shared_Documents').select('*'),
           supabase.from('Document Renewal').select('*'),
           supabase.from('RENEWAL').select('*'),
@@ -270,6 +291,7 @@ const Summary = () => {
         dLife = lifeRes.data || [];
         dFire = fireRes.data || [];
         dEmp = empRes.data || [];
+        dBgs = (bgRes.data || []).filter(b => (b.bg_name || '').trim().toLowerCase() === selectedCompany.trim().toLowerCase());
         dShares = sharesRes.data || [];
         dDocRen = docRenRes.data || [];
         dSubRen = subRenRes.data || [];
@@ -285,6 +307,7 @@ const Summary = () => {
         setRawLife(dLife);
         setRawFire(dFire);
         setRawEmp(dEmp);
+        setRawBgs(dBgs);
         setRawShares(dShares);
         setRawDocRenewals(dDocRen);
         setRawSubRenewals(dSubRen);
@@ -493,6 +516,42 @@ const Summary = () => {
       addInsuranceToUnified(dFire, 'Fire Policy', 'fire');
       addInsuranceToUnified(dEmp, 'Employee Compensation', 'compensation');
 
+      // Add BGs
+      dBgs.forEach(b => {
+        const expDate = b.expiry_date ? new Date(b.expiry_date) : null;
+        const isExpired = expDate ? expDate < today : false;
+        const isExpiringSoon = expDate ? (expDate >= today && expDate <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)) : false;
+        const statusVal = isExpired ? 'Expired' : (isExpiringSoon ? 'Expiring Soon' : 'Active');
+
+        let priorityVal: DashboardItem['priority'] = 'Low';
+        if (isExpired) priorityVal = 'Critical';
+        else if (isExpiringSoon) priorityVal = 'High';
+
+        const shares = docShareMap.get(b.serial_no) || 0;
+        let shareStatusVal: DashboardItem['shareStatus'] = 'Not Shared';
+        if (shares > 2) shareStatusVal = 'Most Shared';
+        else if (shares > 0) shareStatusVal = 'Shared';
+
+        allUnifiedItems.push({
+          id: `bg-${b.id}`,
+          sn: b.serial_no || '',
+          module: 'bg',
+          subType: 'Bank Guarantee',
+          name: b.bg_no || 'N/A',
+          category: b.bank_name || 'N/A',
+          status: statusVal,
+          expiryDate: b.expiry_date || null,
+          premium: b.amount ? Number(b.amount) : 0,
+          shareCount: shares,
+          renewalCount: 0,
+          priority: priorityVal,
+          renewalStatus: 'No Renewal Required',
+          shareStatus: shareStatusVal,
+          created_at: b.created_at || b.timestamp || '',
+          need_renewal: isExpired || isExpiringSoon
+        });
+      });
+
       // Apply the 10 MIS filters dynamically on the unified dataset
       let filteredItems = allUnifiedItems;
 
@@ -509,6 +568,8 @@ const Summary = () => {
           filteredItems = filteredItems.filter(item => item.module === 'subscription');
         } else if (moduleFilter === 'insurance') {
           filteredItems = filteredItems.filter(item => item.module === 'insurance');
+        } else if (moduleFilter === 'bg') {
+          filteredItems = filteredItems.filter(item => item.module === 'bg');
         } else {
           filteredItems = filteredItems.filter(item => item.subType.toLowerCase().replace(/\s+/g, '') === moduleFilter.replace(/\s+/g, ''));
         }
@@ -614,6 +675,7 @@ const Summary = () => {
       const totalDocs = filteredItems.filter(i => i.module === 'document').length;
       const totalSubs = filteredItems.filter(i => i.module === 'subscription').length;
       const totalInsurance = filteredItems.filter(i => i.module === 'insurance').length;
+      const totalBgs = filteredItems.filter(i => i.module === 'bg').length;
       
       const activeRecords = filteredItems.filter(i => i.status === 'Active').length;
       const expiredRecords = filteredItems.filter(i => i.status === 'Expired').length;
@@ -636,15 +698,20 @@ const Summary = () => {
       const insExpired = filteredItems.filter(i => i.module === 'insurance' && i.status === 'Expired').length;
       const insPendingRenewal = filteredItems.filter(i => i.module === 'insurance' && i.renewalStatus === 'Renewal Required').length;
 
+      const bgsActive = filteredItems.filter(i => i.module === 'bg' && i.status === 'Active').length;
+      const bgsExpired = filteredItems.filter(i => i.module === 'bg' && i.status === 'Expired').length;
+      const bgsPendingRenewal = filteredItems.filter(i => i.module === 'bg' && i.need_renewal && i.status !== 'Active').length;
+
       // Executive Insights
       // Highest Risk Category: Which module has the most expired items?
       let highestRiskCategory = 'None';
-      const riskScores = { Documents: docsExpired, Subscriptions: subsExpired, Insurance: insExpired };
-      const maxExpired = Math.max(docsExpired, subsExpired, insExpired);
+      const riskScores = { Documents: docsExpired, Subscriptions: subsExpired, Insurance: insExpired, 'Bank Guarantees': bgsExpired };
+      const maxExpired = Math.max(docsExpired, subsExpired, insExpired, bgsExpired);
       if (maxExpired > 0) {
         if (maxExpired === docsExpired) highestRiskCategory = 'Documents';
         else if (maxExpired === subsExpired) highestRiskCategory = 'Subscriptions';
-        else highestRiskCategory = 'Insurance';
+        else if (maxExpired === insExpired) highestRiskCategory = 'Insurance';
+        else highestRiskCategory = 'Bank Guarantees';
       }
 
       // Most Shared Document
@@ -779,6 +846,7 @@ const Summary = () => {
         totalDocs,
         totalSubs,
         totalInsurance,
+        totalBgs,
         activeRecords,
         expiredRecords,
         expiringSoon,
@@ -803,6 +871,7 @@ const Summary = () => {
         documents: filteredItems.filter(i => i.module === 'document'),
         subscriptions: filteredItems.filter(i => i.module === 'subscription'),
         insurance: filteredItems.filter(i => i.module === 'insurance'),
+        bgs: filteredItems.filter(i => i.module === 'bg'),
         recentActivities: activities.slice(0, 8),
 
         // status matrix details
@@ -814,7 +883,10 @@ const Summary = () => {
         subsPendingRenewal,
         insActive,
         insExpired,
-        insPendingRenewal
+        insPendingRenewal,
+        bgsActive,
+        bgsExpired,
+        bgsPendingRenewal
       };
 
       setReportData(finalReport);
@@ -850,6 +922,7 @@ const Summary = () => {
       ["Total Documents", reportData.totalDocs],
       ["Total Subscriptions", reportData.totalSubs],
       ["Total Insurance Policies", reportData.totalInsurance],
+      ["Total Bank Guarantees", reportData.totalBgs],
       ["Active Records", reportData.activeRecords],
       ["Expired Records", reportData.expiredRecords],
       ["Expiring Soon", reportData.expiringSoon],
@@ -913,8 +986,23 @@ const Summary = () => {
     const wsIns = XLSX.utils.aoa_to_sheet([...insHeaders, ...insRows]);
     XLSX.utils.book_append_sheet(wb, wsIns, "Insurances");
 
+    // 5. BG Sheet Data
+    const bgHeaders = [["Serial No", "BG Number", "Bank Name", "Status", "Amount", "Expiry Date", "Share Count", "Created At"]];
+    const bgRows = (reportData.bgs || []).map(b => [
+      b.sn,
+      b.name,
+      b.category,
+      b.status,
+      b.premium, // Amount mapped to premium/value
+      b.expiryDate ? formatDate(b.expiryDate) : "-",
+      b.shareCount,
+      b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN') : "-"
+    ]);
+    const wsBgs = XLSX.utils.aoa_to_sheet([...bgHeaders, ...bgRows]);
+    XLSX.utils.book_append_sheet(wb, wsBgs, "Bank Guarantees");
+
     // Auto-adjust column widths
-    const sheets = [wsSummary, wsDocs, wsSubs, wsIns];
+    const sheets = [wsSummary, wsDocs, wsSubs, wsIns, wsBgs];
     sheets.forEach(ws => {
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
       const colWidths = [];
@@ -970,7 +1058,8 @@ const Summary = () => {
       // The last page should NOT have pageBreakAfter: 'always'
       const isLastPage = index === pages.length - 1;
       page.style.width = '210mm';
-      page.style.height = '296mm';
+      page.style.minHeight = '296mm';
+      page.style.height = 'auto';
       page.style.boxSizing = 'border-box';
       page.style.margin = '0';
       page.style.border = 'none';
@@ -1138,6 +1227,7 @@ const Summary = () => {
               <option value="documents">Documents</option>
               <option value="subscriptions">Subscriptions</option>
               <option value="insurance">Insurance</option>
+              <option value="bg">Bank Guarantees</option>
               <option value="vehicleinsurance">Vehicle Insurance</option>
               <option value="healthinsurance">Health Insurance</option>
               <option value="lifeinsurance">Life Insurance</option>
@@ -1409,8 +1499,8 @@ const Summary = () => {
       {reportData && !isGenerating && (
         <div className="space-y-6 animate-fade-in">
           
-          {/* 5.1 Dashboard Summary Cards Grid (10 KPI Cards) */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {/* 5.1 Dashboard Summary Cards Grid (11 KPI Cards) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             
             {/* 1. Total Records */}
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
@@ -1446,6 +1536,15 @@ const Summary = () => {
                 <span className="text-xl font-black text-gray-800 block mt-1">{reportData.totalInsurance}</span>
               </div>
               <div className="p-2 bg-teal-50 text-teal-600 rounded-lg"><Shield size={18} /></div>
+            </div>
+
+            {/* 4.5 Total Bank Guarantees */}
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total BGs</span>
+                <span className="text-xl font-black text-gray-800 block mt-1">{reportData.totalBgs}</span>
+              </div>
+              <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Building size={18} /></div>
             </div>
 
             {/* 5. Active Records */}
@@ -1634,7 +1733,7 @@ const Summary = () => {
             <div ref={reportRef} className="space-y-8 bg-gray-100 p-2">
               
               {/* PAGE 1: EXECUTIVE OVERVIEW */}
-              <div className="pdf-page bg-white shadow-xl p-10 mx-auto relative border border-gray-200/50 block" style={{ width: '210mm', height: '296mm', boxSizing: 'border-box' }}>
+              <div className="pdf-page bg-white shadow-xl p-10 mx-auto relative border border-gray-200/50 block" style={{ width: '210mm', minHeight: '296mm', height: 'auto', boxSizing: 'border-box' }}>
                 <div className="space-y-4 pb-4">
                   {/* Report Header block */}
                   <div className="flex justify-between items-start border-b-2 border-indigo-600 pb-5">
@@ -1726,6 +1825,12 @@ const Summary = () => {
                           <td className="p-3 text-center text-green-600 font-bold">{reportData.insActive}</td>
                           <td className="p-3 text-center text-red-600 font-bold">{reportData.insExpired}</td>
                         </tr>
+                        <tr>
+                          <td className="p-3 font-semibold text-gray-700">Bank Guarantees</td>
+                          <td className="p-3 text-center font-bold">{reportData.totalBgs}</td>
+                          <td className="p-3 text-center text-green-600 font-bold">{reportData.bgsActive}</td>
+                          <td className="p-3 text-center text-red-600 font-bold">{reportData.bgsExpired}</td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -1739,12 +1844,12 @@ const Summary = () => {
                 {/* Footer Metadata */}
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 1 of 3</span>
+                  <span>Page 1 of 4</span>
                 </div>
               </div>
 
               {/* PAGE 2: DOCUMENTS & SUBSCRIPTIONS SUMMARY */}
-              <div className="pdf-page bg-white shadow-xl p-10 mx-auto relative border border-gray-200/50 block" style={{ width: '210mm', height: '296mm', boxSizing: 'border-box' }}>
+              <div className="pdf-page bg-white shadow-xl p-10 mx-auto relative border border-gray-200/50 block" style={{ width: '210mm', minHeight: '296mm', height: 'auto', boxSizing: 'border-box' }}>
                 <div className="space-y-4 pb-4">
                   <div className="flex justify-between items-center border-b pb-3">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600">{reportData.companyName} - Documents & Subscriptions</h2>
@@ -1773,7 +1878,7 @@ const Summary = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {reportData.documents.slice(0, 8).map((doc, idx) => (
+                          {reportData.documents.map((doc, idx) => (
                             <tr key={idx}>
                               <td className="p-2 font-mono font-bold text-indigo-600">{doc.sn}</td>
                               <td className="p-2 font-medium text-gray-900 truncate max-w-[150px]">{doc.name}</td>
@@ -1790,13 +1895,6 @@ const Summary = () => {
                               <td className="p-2 text-center font-bold">{doc.renewalCount}</td>
                             </tr>
                           ))}
-                          {reportData.documents.length > 8 && (
-                            <tr className="bg-gray-50/50 font-semibold text-gray-500">
-                              <td colSpan={7} className="p-2 text-center text-[9px]">
-                                + {reportData.documents.length - 8} more documents summarized under counts
-                              </td>
-                            </tr>
-                          )}
                         </tbody>
                       </table>
                     ) : (
@@ -1826,7 +1924,7 @@ const Summary = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {reportData.subscriptions.slice(0, 6).map((sub, idx) => (
+                          {reportData.subscriptions.map((sub, idx) => (
                             <tr key={idx}>
                               <td className="p-2 font-medium text-gray-900 truncate max-w-[200px]">{sub.name}</td>
                               <td className="p-2">{sub.category}</td>
@@ -1841,13 +1939,6 @@ const Summary = () => {
                               <td className="p-2 text-center font-bold">{sub.renewalCount}</td>
                             </tr>
                           ))}
-                          {reportData.subscriptions.length > 6 && (
-                            <tr className="bg-gray-50/50 font-semibold text-gray-500">
-                              <td colSpan={5} className="p-2 text-center text-[9px]">
-                                + {reportData.subscriptions.length - 6} more subscriptions summarized under counts
-                              </td>
-                            </tr>
-                          )}
                         </tbody>
                       </table>
                     ) : (
@@ -1860,12 +1951,12 @@ const Summary = () => {
 
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 2 of 3</span>
+                  <span>Page 2 of 4</span>
                 </div>
               </div>
 
               {/* PAGE 3: INSURANCE SUMMARY & RECENT ACTIVITIES */}
-              <div className="pdf-page bg-white shadow-xl p-10 mx-auto relative border border-gray-200/50 block" style={{ width: '210mm', height: '296mm', boxSizing: 'border-box' }}>
+              <div className="pdf-page bg-white shadow-xl p-10 mx-auto relative border border-gray-200/50 block" style={{ width: '210mm', minHeight: '296mm', height: 'auto', boxSizing: 'border-box' }}>
                 <div className="space-y-4 pb-4">
                   <div className="flex justify-between items-center border-b pb-3">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600">{reportData.companyName} - Insurances & Logs</h2>
@@ -1894,7 +1985,7 @@ const Summary = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {reportData.insurance.slice(0, 6).map((ins, idx) => (
+                          {reportData.insurance.map((ins, idx) => (
                             <tr key={idx}>
                               <td className="p-2 font-mono font-bold text-indigo-600">{ins.sn}</td>
                               <td className="p-2 font-medium text-gray-900">{ins.subType}</td>
@@ -1911,13 +2002,6 @@ const Summary = () => {
                               <td className="p-2 text-center font-bold">{ins.renewalCount}</td>
                             </tr>
                           ))}
-                          {reportData.insurance.length > 6 && (
-                            <tr className="bg-gray-50/50 font-semibold text-gray-500">
-                              <td colSpan={7} className="p-2 text-center text-[9px]">
-                                + {reportData.insurance.length - 6} more policies summarized under counts
-                              </td>
-                            </tr>
-                          )}
                         </tbody>
                       </table>
                     ) : (
@@ -1945,13 +2029,74 @@ const Summary = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
+                  <span>DS Dashboard MIS Reports Console</span>
+                  <span>Page 3 of 4</span>
+                </div>
+              </div>
+
+              {/* PAGE 4: BANK GUARANTEES SUMMARY & RECENT ACTIVITIES */}
+              <div className="pdf-page bg-white shadow-xl p-10 mx-auto relative border border-gray-200/50 block" style={{ width: '210mm', minHeight: '296mm', height: 'auto', boxSizing: 'border-box' }}>
+                <div className="space-y-4 pb-4">
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600">{reportData.companyName} - Bank Guarantees & Logs</h2>
+                    <span className="text-[10px] text-gray-400 font-mono">Generated: {reportData.generatedAt}</span>
+                  </div>
+
+                  {/* Bank Guarantees list */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700">Bank Guarantees Summary Table</h3>
+                      <span className="text-[9px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-bold">
+                        Active BGs: {reportData.bgsActive}
+                      </span>
+                    </div>
+                    {reportData.bgs && reportData.bgs.length > 0 ? (
+                      <table className="w-full text-left border-collapse text-[10px]">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase">
+                            <th className="p-2">Serial</th>
+                            <th className="p-2">BG Number</th>
+                            <th className="p-2">Bank Name</th>
+                            <th className="p-2 text-center">Status</th>
+                            <th className="p-2 text-right">Amount</th>
+                            <th className="p-2 text-center">Expiry Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {reportData.bgs.map((bg, idx) => (
+                            <tr key={idx}>
+                              <td className="p-2 font-mono font-bold text-indigo-600">{bg.sn}</td>
+                              <td className="p-2 font-medium text-gray-900">{bg.name}</td>
+                              <td className="p-2">{bg.category}</td>
+                              <td className="p-2 text-center">
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                  bg.status === 'Expired' ? 'bg-red-50 text-red-600' : (bg.status === 'Expiring Soon' ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600')
+                                }`}>
+                                  {bg.status}
+                                </span>
+                              </td>
+                              <td className="p-2 text-right font-medium">₹{bg.premium.toLocaleString('en-IN')}</td>
+                              <td className="p-2 text-center font-medium">{bg.expiryDate ? formatDate(bg.expiryDate) : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="p-6 bg-gray-50 border border-dashed text-center text-xs text-gray-400 rounded-xl">
+                        No Bank Guarantee Records Available
+                      </div>
+                    )}
+                  </div>
 
                   {/* Recent Activities list */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 pt-4 border-t border-gray-100">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700 border-b pb-1">Recent Activities Logs</h3>
                     {reportData.recentActivities.length > 0 ? (
                       <div className="space-y-2">
-                        {reportData.recentActivities.slice(0, 5).map((act, idx) => (
+                        {reportData.recentActivities.slice(0, 8).map((act, idx) => (
                           <div key={idx} className="flex gap-2 text-[10px] text-gray-600 items-start">
                             <span className="font-mono text-gray-400 shrink-0 w-20">{new Date(act.date).toLocaleDateString('en-IN')}</span>
                             <span className="truncate">{act.message}</span>
@@ -1968,7 +2113,7 @@ const Summary = () => {
 
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 3 of 3</span>
+                  <span>Page 4 of 4</span>
                 </div>
               </div>
 
