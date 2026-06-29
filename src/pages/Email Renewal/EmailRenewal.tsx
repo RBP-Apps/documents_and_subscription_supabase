@@ -210,6 +210,109 @@ const EmailRenewal = () => {
   const [masters, setMasters] = useState<MasterRecord[]>([]);
   const [flatData, setFlatData] = useState<FlattenedRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fileSizes, setFileSizes] = useState<Record<number, string>>({});
+
+  const formatBytes = (bytes: number, decimals: number = 2): string => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  };
+
+  useEffect(() => {
+    if (flatData.length === 0) return;
+
+    let active = true;
+
+    const fetchSizes = async () => {
+      const bucketSizes: Record<string, number> = {};
+      
+      // Step 1: List files in email_renewals folder under 'Email Renewal' bucket
+      try {
+        const { data: files, error } = await supabase.storage
+          .from("Email Renewal")
+          .list("email_renewals", { limit: 1000 });
+        if (!error && files) {
+          files.forEach((file) => {
+            if (file.name && file.metadata?.size) {
+              bucketSizes[`email_renewals/${file.name}`] = file.metadata.size;
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Failed to list storage bucket for email_renewals folder:", e);
+      }
+
+      if (!active) return;
+
+      const newSizes: Record<number, string> = {};
+
+      const promises = flatData.map(async (row) => {
+        const url = row.master.document_url;
+        if (!url) {
+          newSizes[row.master.id] = "-";
+          return;
+        }
+
+        // 1. Check if it's base64 data URL
+        if (url.startsWith("data:")) {
+          const base64Data = url.split(",")[1];
+          if (base64Data) {
+            const size = Math.round((base64Data.length * 3) / 4);
+            newSizes[row.master.id] = formatBytes(size);
+          } else {
+            newSizes[row.master.id] = "-";
+          }
+          return;
+        }
+
+        // 2. Try extracting filename if it's stored in Email Renewal bucket
+        let size: number | null = null;
+        if (url.includes("/storage/v1/object/public/Email%20Renewal/email_renewals/") || url.includes("/storage/v1/object/public/Email Renewal/email_renewals/")) {
+          const decodeUrl = decodeURIComponent(url);
+          const parts = decodeUrl.split("/storage/v1/object/public/Email Renewal/email_renewals/");
+          const fileName = parts[parts.length - 1];
+          const fullPath = `email_renewals/${fileName}`;
+          if (bucketSizes[fullPath] !== undefined) {
+            size = bucketSizes[fullPath];
+          }
+        }
+
+        // 3. Fallback to HTTP HEAD request if not in list or for external URLs
+        if (size === null) {
+          try {
+            const response = await fetch(url, { method: "HEAD" });
+            const contentLength = response.headers.get("content-length");
+            if (contentLength) {
+              size = parseInt(contentLength, 10);
+            }
+          } catch (e) {
+            console.error(`Failed to fetch HEAD for ${url}:`, e);
+          }
+        }
+
+        if (size !== null) {
+          newSizes[row.master.id] = formatBytes(size);
+        } else {
+          newSizes[row.master.id] = "-";
+        }
+      });
+
+      await Promise.all(promises);
+
+      if (active) {
+        setFileSizes(newSizes);
+      }
+    };
+
+    fetchSizes();
+
+    return () => {
+      active = false;
+    };
+  }, [flatData]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProvider, setFilterProvider] = useState('');
@@ -472,6 +575,7 @@ const EmailRenewal = () => {
                   <th className="px-4 py-4 text-center">Action</th>
                   <th className="px-4 py-4 text-center">Share</th>
                   <th className="px-4 py-4 text-center">Document</th>
+                  <th className="px-4 py-4 text-center">File Size</th>
                   <th className="px-4 py-4 text-left">Sub SR No</th>
                   <th className="px-4 py-4 text-left">Invoice No</th>
                   <th className="px-4 py-4 text-left">Invoice Date</th>
@@ -536,6 +640,9 @@ const EmailRenewal = () => {
                         <span className="text-gray-400 text-xs">-</span>
                       )}
                     </td>
+                    <td className="px-4 py-4 text-center text-gray-700 text-xs font-medium whitespace-nowrap">
+                      {row.master.document_url ? (fileSizes[row.master.id] || "Loading...") : "-"}
+                    </td>
                     <td className="px-4 py-4 whitespace-nowrap text-gray-500 font-medium">
                       {row.sub_serial_no}
                     </td>
@@ -583,7 +690,7 @@ const EmailRenewal = () => {
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={18} className="text-center py-16 text-gray-500">
+                    <td colSpan={19} className="text-center py-16 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <MailWarning size={48} className="text-gray-300 animate-bounce" />
                         <p className="font-medium text-gray-600">No Email Renewal Entries Found</p>

@@ -11,6 +11,108 @@ const AllBG = () => {
     const { setTitle } = useHeaderStore();
     const { bgs, setBgs } = useDataStore();
     const [isLoading, setIsLoading] = useState(true);
+    const [fileSizes, setFileSizes] = useState<Record<string, string>>({});
+
+    const formatBytes = (bytes: number, decimals: number = 2): string => {
+        if (bytes === 0) return "0 B";
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ["B", "KB", "MB", "GB", "TB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+    };
+
+    useEffect(() => {
+        if (bgs.length === 0) return;
+
+        let active = true;
+
+        const fetchSizes = async () => {
+            const bucketSizes: Record<string, number> = {};
+            
+            // Step 1: List files in bg folder under DRIVE_FOLDER bucket
+            try {
+                const { data, error } = await supabase.storage
+                    .from("DRIVE_FOLDER")
+                    .list("bg", { limit: 1000 });
+                if (!error && data) {
+                    data.forEach((file) => {
+                        if (file.name && file.metadata?.size) {
+                            bucketSizes[`bg/${file.name}`] = file.metadata.size;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to list storage bucket for bg folder:", e);
+            }
+
+            if (!active) return;
+
+            const newSizes: Record<string, string> = {};
+
+            const promises = bgs.map(async (item) => {
+                const url = item.fileContent;
+                if (!url) {
+                    newSizes[item.id] = "-";
+                    return;
+                }
+
+                // 1. Check if it's base64 data URL
+                if (url.startsWith("data:")) {
+                    const base64Data = url.split(",")[1];
+                    if (base64Data) {
+                        const size = Math.round((base64Data.length * 3) / 4);
+                        newSizes[item.id] = formatBytes(size);
+                    } else {
+                        newSizes[item.id] = "-";
+                    }
+                    return;
+                }
+
+                // 2. Try extracting filename if it's stored in DRIVE_FOLDER bucket
+                let size: number | null = null;
+                if (url.includes("/storage/v1/object/public/DRIVE_FOLDER/bg/")) {
+                    const parts = url.split("/storage/v1/object/public/DRIVE_FOLDER/bg/");
+                    const fileName = parts[parts.length - 1];
+                    const fullPath = `bg/${fileName}`;
+                    if (bucketSizes[fullPath] !== undefined) {
+                        size = bucketSizes[fullPath];
+                    }
+                }
+
+                // 3. Fallback to HTTP HEAD request if not in list or for external URLs
+                if (size === null) {
+                    try {
+                        const response = await fetch(url, { method: "HEAD" });
+                        const contentLength = response.headers.get("content-length");
+                        if (contentLength) {
+                            size = parseInt(contentLength, 10);
+                        }
+                    } catch (e) {
+                        console.error(`Failed to fetch HEAD for ${url}:`, e);
+                    }
+                }
+
+                if (size !== null) {
+                    newSizes[item.id] = formatBytes(size);
+                } else {
+                    newSizes[item.id] = "-";
+                }
+            });
+
+            await Promise.all(promises);
+
+            if (active) {
+                setFileSizes(newSizes);
+            }
+        };
+
+        fetchSizes();
+
+        return () => {
+            active = false;
+        };
+    }, [bgs]);
 
     const formatCurrency = (amount: string | number | undefined) => {
         if (!amount) return '₹0';
@@ -161,6 +263,7 @@ const AllBG = () => {
                                             <th className="px-4 py-4 border-b border-gray-100 whitespace-nowrap">Expiry date</th>
                                             <th className="px-4 py-4 border-b border-gray-100 whitespace-nowrap">Claim expiry date</th>
                                             <th className="px-4 py-4 border-b border-gray-100">File</th>
+                                            <th className="px-4 py-4 border-b border-gray-100">File Size</th>
                                             <th className="px-4 py-4 border-b border-gray-100">Remarks</th>
                                         </tr>
                                     </thead>
@@ -197,6 +300,9 @@ const AllBG = () => {
                                                     ) : (
                                                         <span className="text-gray-400 font-mono">-</span>
                                                     )}
+                                                </td>
+                                                <td className="px-4 py-4 text-gray-700 text-xs font-medium">
+                                                    {item.file ? (fileSizes[item.id] || "Loading...") : "-"}
                                                 </td>
                                                 <td className="px-4 py-4 text-gray-500 italic text-xs max-w-[150px] truncate">{item.remarks}</td>
                                             </tr>

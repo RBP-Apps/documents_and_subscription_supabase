@@ -186,6 +186,108 @@ const FirePolicyPage = () => {
 
   const [data, setData] = useState<FirePolicy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fileSizes, setFileSizes] = useState<Record<number, string>>({});
+
+  const formatBytes = (bytes: number, decimals: number = 2): string => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  };
+
+  useEffect(() => {
+    if (data.length === 0) return;
+
+    let active = true;
+
+    const fetchSizes = async () => {
+      const bucketSizes: Record<string, number> = {};
+      
+      // Step 1: List files in general/fire_policy folder under insurance bucket
+      try {
+        const { data: files, error } = await supabase.storage
+          .from("insurance")
+          .list("general/fire_policy", { limit: 1000 });
+        if (!error && files) {
+          files.forEach((file) => {
+            if (file.name && file.metadata?.size) {
+              bucketSizes[`general/fire_policy/${file.name}`] = file.metadata.size;
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Failed to list storage bucket for general/fire_policy folder:", e);
+      }
+
+      if (!active) return;
+
+      const newSizes: Record<number, string> = {};
+
+      const promises = data.map(async (item) => {
+        const url = item.document_url;
+        if (!url) {
+          newSizes[item.id] = "-";
+          return;
+        }
+
+        // 1. Check if it's base64 data URL
+        if (url.startsWith("data:")) {
+          const base64Data = url.split(",")[1];
+          if (base64Data) {
+            const size = Math.round((base64Data.length * 3) / 4);
+            newSizes[item.id] = formatBytes(size);
+          } else {
+            newSizes[item.id] = "-";
+          }
+          return;
+        }
+
+        // 2. Try extracting filename if it's stored in insurance bucket
+        let size: number | null = null;
+        if (url.includes("/storage/v1/object/public/insurance/general/fire_policy/")) {
+          const parts = url.split("/storage/v1/object/public/insurance/general/fire_policy/");
+          const fileName = parts[parts.length - 1];
+          const fullPath = `general/fire_policy/${fileName}`;
+          if (bucketSizes[fullPath] !== undefined) {
+            size = bucketSizes[fullPath];
+          }
+        }
+
+        // 3. Fallback to HTTP HEAD request if not in list or for external URLs
+        if (size === null) {
+          try {
+            const response = await fetch(url, { method: "HEAD" });
+            const contentLength = response.headers.get("content-length");
+            if (contentLength) {
+              size = parseInt(contentLength, 10);
+            }
+          } catch (e) {
+            console.error(`Failed to fetch HEAD for ${url}:`, e);
+          }
+        }
+
+        if (size !== null) {
+          newSizes[item.id] = formatBytes(size);
+        } else {
+          newSizes[item.id] = "-";
+        }
+      });
+
+      await Promise.all(promises);
+
+      if (active) {
+        setFileSizes(newSizes);
+      }
+    };
+
+    fetchSizes();
+
+    return () => {
+      active = false;
+    };
+  }, [data]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCompany, setFilterCompany] = useState('');
@@ -408,6 +510,7 @@ const FirePolicyPage = () => {
                   <th className="px-6 py-4 text-center">ACTION</th>
                   <th className="px-6 py-4 text-center">SHARE</th>
                   <th className="px-6 py-4 text-center">DOCUMENT</th>
+                  <th className="px-6 py-4 text-center">File Size</th>
                   <th className="px-6 py-4 text-left">COMPANY NAME</th>
                   <th className="px-6 py-4 text-left">POLICY HOLDER COMPANY</th>
                   <th className="px-6 py-4 text-left">POLICY NO.</th>
@@ -471,6 +574,9 @@ const FirePolicyPage = () => {
                         <span className="text-gray-400 text-sm">-</span>
                       )}
                     </td>
+                    <td className="px-6 py-4 text-center text-gray-700 text-xs font-medium whitespace-nowrap">
+                      {item.document_url ? (fileSizes[item.id] || "Loading...") : "-"}
+                    </td>
                     <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap text-sm">
                       {item.company_name}
                     </td>
@@ -508,7 +614,7 @@ const FirePolicyPage = () => {
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="text-center py-12 text-gray-500">
+                    <td colSpan={14} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <Shield size={48} className="text-gray-300" />
                         <p>No Fire Policy Records Found</p>

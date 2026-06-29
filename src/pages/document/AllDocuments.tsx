@@ -39,6 +39,106 @@ const AllDocuments = () => {
   const [selectedDocumentName, setSelectedDocumentName] = useState("");
   const [selectedCompanyName, setSelectedCompanyName] = useState("");
   const [selectedConcernPersonName, setSelectedConcernPersonName] = useState("");
+  const [fileSizes, setFileSizes] = useState<Record<string, string>>({});
+
+  const formatBytes = (bytes: number, decimals: number = 2): string => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  };
+
+  useEffect(() => {
+    if (documents.length === 0) return;
+
+    let active = true;
+
+    const fetchSizes = async () => {
+      // Step 1: List files in DRIVE_FOLDER to get metadata/size in bulk
+      const bucketSizes: Record<string, number> = {};
+      try {
+        const { data, error } = await supabase.storage
+          .from("DRIVE_FOLDER")
+          .list("", { limit: 1000 });
+        if (!error && data) {
+          data.forEach((file) => {
+            if (file.name && file.metadata?.size) {
+              bucketSizes[file.name] = file.metadata.size;
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Failed to list storage bucket:", e);
+      }
+
+      if (!active) return;
+
+      const newSizes: Record<string, string> = {};
+
+      const promises = documents.map(async (doc) => {
+        const url = doc.fileContent;
+        if (!url) {
+          newSizes[doc.id] = "-";
+          return;
+        }
+
+        // 1. Check if it's base64 data URL
+        if (url.startsWith("data:")) {
+          const base64Data = url.split(",")[1];
+          if (base64Data) {
+            const size = Math.round((base64Data.length * 3) / 4);
+            newSizes[doc.id] = formatBytes(size);
+          } else {
+            newSizes[doc.id] = "-";
+          }
+          return;
+        }
+
+        // 2. Try extracting filename if it's stored in DRIVE_FOLDER bucket
+        let size: number | null = null;
+        if (url.includes("/storage/v1/object/public/DRIVE_FOLDER/")) {
+          const parts = url.split("/storage/v1/object/public/DRIVE_FOLDER/");
+          const fileName = parts[parts.length - 1];
+          if (bucketSizes[fileName] !== undefined) {
+            size = bucketSizes[fileName];
+          }
+        }
+
+        // 3. Fallback to HTTP HEAD request if not in storage list or for external URLs
+        if (size === null) {
+          try {
+            const response = await fetch(url, { method: "HEAD" });
+            const contentLength = response.headers.get("content-length");
+            if (contentLength) {
+              size = parseInt(contentLength, 10);
+            }
+          } catch (e) {
+            console.error(`Failed to fetch HEAD for ${url}:`, e);
+          }
+        }
+
+        if (size !== null) {
+          newSizes[doc.id] = formatBytes(size);
+        } else {
+          newSizes[doc.id] = "-";
+        }
+      });
+
+      await Promise.all(promises);
+
+      if (active) {
+        setFileSizes(newSizes);
+      }
+    };
+
+    fetchSizes();
+
+    return () => {
+      active = false;
+    };
+  }, [documents]);
 
   useEffect(() => {
     setTitle("All Document");
@@ -610,6 +710,9 @@ const AllDocuments = () => {
                       File
                     </th>
                     <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
+                      File Size
+                    </th>
+                    <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
                       Document Name
                     </th>
                     <th className="px-3 py-2 whitespace-nowrap bg-gray-50 text-center">
@@ -763,6 +866,9 @@ const AllDocuments = () => {
                           <span className="text-gray-400 text-xs">-</span>
                         )}
                       </td>
+                      <td className="px-3 py-2 text-gray-700 text-xs text-center">
+                        {item.file ? (fileSizes[item.id] || "Loading...") : "-"}
+                      </td>
                       <td className="px-3 py-2 text-gray-900">
                         <div className="flex items-center justify-center gap-2">
                           {item.documentName}
@@ -817,7 +923,7 @@ const AllDocuments = () => {
                   {filteredData.length === 0 && (
                     <tr>
                       <td
-                        colSpan={16}
+                        colSpan={17}
                         className="p-12 text-center text-gray-500"
                       >
                         <div className="flex flex-col items-center gap-2">
