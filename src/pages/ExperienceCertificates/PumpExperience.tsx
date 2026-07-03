@@ -181,6 +181,7 @@ const PumpExperience = () => {
 
     const matchesClient = filterClient ? item.client_name === filterClient : true;
 
+    
     return matchesSearch && matchesClient;
   });
 
