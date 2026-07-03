@@ -171,7 +171,6 @@ const PumpExperience = () => {
   const filteredData = data.filter((item) => {
     const matchesSearch =
       item.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.work_order_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.work_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.pump_capacity?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.serial_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -227,7 +226,7 @@ const PumpExperience = () => {
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by serial no, client, work order no, work name, company, scheme, department, year..."
+                  placeholder="Search by serial no, client, work name, company, scheme, department, year..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-full border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
@@ -262,7 +261,6 @@ const PumpExperience = () => {
                   <th className="px-6 py-4 text-center">DOCUMENT</th>
                   <th className="px-6 py-4 text-center">FILE SIZE</th>
                   <th className="px-6 py-4">CLIENT NAME</th>
-                  <th className="px-6 py-4">WORK ORDER NO</th>
                   <th className="px-6 py-4">ISSUE DATE</th>
                   <th className="px-6 py-4">WORK NAME</th>
                   <th className="px-6 py-4">PUMP CAPACITY</th>
@@ -325,7 +323,6 @@ const PumpExperience = () => {
                       {fileSizes[item.id] || '-'}
                     </td>
                     <td className="px-6 py-4 font-medium text-gray-900">{item.client_name}</td>
-                    <td className="px-6 py-4 text-gray-600">{item.work_order_no}</td>
                     <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
                       {item.issue_date ? new Date(item.issue_date).toLocaleDateString('en-IN') : '-'}
                     </td>
@@ -343,7 +340,7 @@ const PumpExperience = () => {
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={15} className="text-center py-12 text-gray-500">
+                    <td colSpan={14} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <Award size={48} className="text-gray-300" />
                         <p>No Pump Experience Certificate Records Found</p>
@@ -479,7 +476,6 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
   saveLocal,
 }) => {
   const [clientName, setClientName] = useState('');
-  const [workOrderNo, setWorkOrderNo] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [workName, setWorkName] = useState('');
   const [pumpCapacity, setPumpCapacity] = useState('');
@@ -509,10 +505,6 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientName || !workOrderNo || !issueDate || !workName || !pumpCapacity || !value) {
-      toast.error('Please fill all required fields');
-      return;
-    }
 
     setIsSubmitting(true);
     let fileUrl = '';
@@ -537,11 +529,10 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
         .insert([
           {
             client_name: clientName,
-            work_order_no: workOrderNo,
-            issue_date: issueDate,
+            issue_date: issueDate || null,
             work_name: workName,
             pump_capacity: pumpCapacity,
-            value: value ? Number(value) : 0,
+            value: value ? Number(value) : null,
             file_url: fileUrl || undefined,
             company_name: companyName || undefined,
             scheme: scheme || undefined,
@@ -568,8 +559,7 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
         id: newId,
         serial_no: `EXP-PMP-${newId.toString().slice(-4)}`,
         client_name: clientName,
-        work_order_no: workOrderNo,
-        issue_date: issueDate,
+        issue_date: issueDate || undefined,
         work_name: workName,
         pump_capacity: pumpCapacity,
         value: value,
@@ -606,10 +596,9 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Client Name *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Client Name</label>
               <input
                 type="text"
-                required
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -617,31 +606,18 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Work Order No *</label>
-              <input
-                type="text"
-                required
-                value={workOrderNo}
-                onChange={(e) => setWorkOrderNo(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. EE/PHED/2026/456"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Issue Date *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Issue Date</label>
               <input
                 type="date"
-                required
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Work Name *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Work Name</label>
               <input
                 type="text"
-                required
                 value={workName}
                 onChange={(e) => setWorkName(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -649,10 +625,9 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Pump Capacity *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Pump Capacity</label>
               <input
                 type="text"
-                required
                 value={pumpCapacity}
                 onChange={(e) => setPumpCapacity(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -660,10 +635,9 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Value (₹) *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Value (₹)</label>
               <input
                 type="number"
-                required
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -777,7 +751,6 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
   saveLocal,
 }) => {
   const [clientName, setClientName] = useState(certData.client_name);
-  const [workOrderNo, setWorkOrderNo] = useState(certData.work_order_no);
   const [issueDate, setIssueDate] = useState(certData.issue_date);
   const [workName, setWorkName] = useState(certData.work_name);
   const [pumpCapacity, setPumpCapacity] = useState(certData.pump_capacity);
@@ -830,11 +803,10 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
         .from('pump_experience_certificates')
         .update({
           client_name: clientName,
-          work_order_no: workOrderNo,
-          issue_date: issueDate,
+          issue_date: issueDate || null,
           work_name: workName,
           pump_capacity: pumpCapacity,
-          value: value ? Number(value) : 0,
+          value: value ? Number(value) : null,
           file_url: fileUrl || undefined,
           company_name: companyName || undefined,
           scheme: scheme || undefined,
@@ -856,8 +828,7 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
           ? {
               ...item,
               client_name: clientName,
-              work_order_no: workOrderNo,
-              issue_date: issueDate,
+              issue_date: issueDate || undefined,
               work_name: workName,
               pump_capacity: pumpCapacity,
               value: value,
@@ -894,60 +865,45 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Client Name *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Client Name</label>
               <input
                 type="text"
-                required
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Work Order No *</label>
-              <input
-                type="text"
-                required
-                value={workOrderNo}
-                onChange={(e) => setWorkOrderNo(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Issue Date *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Issue Date</label>
               <input
                 type="date"
-                required
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Work Name *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Work Name</label>
               <input
                 type="text"
-                required
                 value={workName}
                 onChange={(e) => setWorkName(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Pump Capacity *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Pump Capacity</label>
               <input
                 type="text"
-                required
                 value={pumpCapacity}
                 onChange={(e) => setPumpCapacity(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Value (₹) *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Value (₹)</label>
               <input
                 type="number"
-                required
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"

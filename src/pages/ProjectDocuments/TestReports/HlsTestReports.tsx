@@ -56,7 +56,6 @@ const HlsTestReports = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCompany, setFilterCompany] = useState('');
-  const [filterState, setFilterState] = useState('');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -129,23 +128,17 @@ const HlsTestReports = () => {
   const filteredData = data.filter((item) => {
     const matchesSearch =
       item.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.scheme?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.hls_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.serial_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.lab_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.model?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesCompany = filterCompany ? item.company_name === filterCompany : true;
-    const matchesState = filterState ? item.state === filterState : true;
 
-    return matchesSearch && matchesCompany && matchesState;
+    return matchesSearch && matchesCompany;
   });
 
   const companies = Array.from(new Set(data.map((item) => item.company_name).filter(Boolean)));
-  const states = Array.from(new Set(data.map((item) => item.state).filter(Boolean)));
 
   if (loading) {
     return (
@@ -187,7 +180,7 @@ const HlsTestReports = () => {
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by serial no, company, department, scheme, state, manufacturer, lab..."
+                  placeholder="Search by serial no, company, manufacturer, lab..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-full border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
@@ -206,19 +199,6 @@ const HlsTestReports = () => {
                   </option>
                 ))}
               </select>
-
-              <select
-                value={filterState}
-                onChange={(e) => setFilterState(e.target.value)}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition min-w-[160px]"
-              >
-                <option value="">All States</option>
-                {states.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
         </div>
@@ -234,13 +214,8 @@ const HlsTestReports = () => {
                   <th className="px-6 py-4 text-center">SHARE</th>
                   <th className="px-6 py-4 text-center">DOCUMENT</th>
                   <th className="px-6 py-4 text-center">FILE SIZE</th>
-                  <th className="px-6 py-4">STATE</th>
                   <th className="px-6 py-4">DATE</th>
-                  <th className="px-6 py-4">DEPARTMENT</th>
-                  <th className="px-6 py-4">SCHEME</th>
                   <th className="px-6 py-4">COMPANY NAME</th>
-                  <th className="px-6 py-4">HLS TYPE</th>
-                  <th className="px-6 py-4">STATUS</th>
                   <th className="px-6 py-4">MANUFACTURER</th>
                   <th className="px-6 py-4">LAB NAME</th>
                   <th className="px-6 py-4">TEST START DATE</th>
@@ -300,25 +275,10 @@ const HlsTestReports = () => {
                     <td className="px-6 py-4 text-center text-gray-500 font-medium whitespace-nowrap">
                       {item.file_size || '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 whitespace-nowrap">{item.state}</td>
                     <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
                       {item.date ? new Date(item.date).toLocaleDateString('en-IN') : '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{item.department}</td>
-                    <td className="px-6 py-4 text-gray-600">{item.scheme}</td>
                     <td className="px-6 py-4 font-medium text-gray-900">{item.company_name}</td>
-                    <td className="px-6 py-4 text-gray-600">{item.hls_type}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          item.status === 'Pass'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                    </td>
                     <td className="px-6 py-4 text-gray-600">{item.manufacturer || '-'}</td>
                     <td className="px-6 py-4 text-gray-600">{item.lab_name || '-'}</td>
                     <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
@@ -334,7 +294,7 @@ const HlsTestReports = () => {
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={18} className="text-center py-12 text-gray-500">
+                    <td colSpan={13} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <FileText size={48} className="text-gray-300" />
                         <p>No HLS Test Report Records Found</p>
@@ -469,13 +429,8 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
   currentData,
   saveLocal,
 }) => {
-  const [state, setState] = useState('');
   const [date, setDate] = useState('');
-  const [department, setDepartment] = useState('');
-  const [scheme, setScheme] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [hlsType, setHlsType] = useState('');
-  const [status, setStatus] = useState('Pass');
   const [manufacturer, setManufacturer] = useState('');
   const [labName, setLabName] = useState('');
   const [testingStartDate, setTestingStartDate] = useState('');
@@ -505,10 +460,6 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!state || !date || !department || !scheme || !companyName || !hlsType) {
-      toast.error('Please fill all required fields');
-      return;
-    }
 
     setIsSubmitting(true);
     let fileUrl = '';
@@ -532,13 +483,8 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
         .from('hls_test_reports')
         .insert([
           {
-            state,
-            date,
-            department,
-            scheme,
+            date: date || null,
             company_name: companyName,
-            hls_type: hlsType,
-            status,
             file_url: fileUrl || undefined,
             file_size: fileSize || undefined,
             manufacturer: manufacturer || undefined,
@@ -567,13 +513,8 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
       const newReport: HlsReport = {
         id: newId,
         serial_no: `HLS-${newId.toString().slice(-4)}`,
-        state,
-        date,
-        department,
-        scheme,
+        date: date || undefined,
         company_name: companyName,
-        hls_type: hlsType,
-        status,
         file_url: fileUrl || undefined,
         file_size: fileSize || undefined,
         manufacturer: manufacturer || undefined,
@@ -610,80 +551,23 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">State *</label>
-              <input
-                type="text"
-                required
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. Gujarat"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Date & Reporting *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Date & Reporting</label>
               <input
                 type="date"
-                required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Department *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name/ Customer Name</label>
               <input
                 type="text"
-                required
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. Water Resources"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Scheme *</label>
-              <input
-                type="text"
-                required
-                value={scheme}
-                onChange={(e) => setScheme(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. Har Ghar Jal"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name/ Customer Name *</label>
-              <input
-                type="text"
-                required
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                 placeholder="e.g. RBP Projects"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">HLS Type *</label>
-              <input
-                type="text"
-                required
-                value={hlsType}
-                onChange={(e) => setHlsType(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. Solar HLS"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Status *</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              >
-                <option value="Pass">Pass</option>
-                <option value="Fail">Fail</option>
-              </select>
             </div>
 
             {/* Newly Requested Fields */}
@@ -810,13 +694,8 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
   currentData,
   saveLocal,
 }) => {
-  const [state, setState] = useState(reportData.state);
   const [date, setDate] = useState(reportData.date);
-  const [department, setDepartment] = useState(reportData.department);
-  const [scheme, setScheme] = useState(reportData.scheme);
   const [companyName, setCompanyName] = useState(reportData.company_name);
-  const [hlsType, setHlsType] = useState(reportData.hls_type);
-  const [status, setStatus] = useState(reportData.status);
 
   // Newly Requested Fields
   const [manufacturer, setManufacturer] = useState(reportData.manufacturer || '');
@@ -869,13 +748,8 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
       const { error: updateError } = await supabase
         .from('hls_test_reports')
         .update({
-          state,
-          date,
-          department,
-          scheme,
+          date: date || null,
           company_name: companyName,
-          hls_type: hlsType,
-          status,
           file_url: fileUrl || undefined,
           file_size: fileSize || undefined,
           manufacturer: manufacturer || undefined,
@@ -899,13 +773,8 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
         item.id === reportData.id
           ? {
               ...item,
-              state,
-              date,
-              department,
-              scheme,
+              date: date || undefined,
               company_name: companyName,
-              hls_type: hlsType,
-              status,
               file_url: fileUrl || undefined,
               file_size: fileSize || undefined,
               manufacturer: manufacturer || undefined,
@@ -942,75 +811,22 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">State *</label>
-              <input
-                type="text"
-                required
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Date *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Date</label>
               <input
                 type="date"
-                required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Department *</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name</label>
               <input
                 type="text"
-                required
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Scheme *</label>
-              <input
-                type="text"
-                required
-                value={scheme}
-                onChange={(e) => setScheme(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name *</label>
-              <input
-                type="text"
-                required
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">HLS Type *</label>
-              <input
-                type="text"
-                required
-                value={hlsType}
-                onChange={(e) => setHlsType(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Status *</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              >
-                <option value="Pass">Pass</option>
-                <option value="Fail">Fail</option>
-              </select>
             </div>
 
             {/* Newly Requested Fields */}
@@ -1146,8 +962,8 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
       setRecipientName('');
       setEmail('');
       setWhatsapp('');
-      setSubject(`Sharing HLS Test Report: ${item.company_name} - ${item.scheme}`);
-      setMessage(`Please find the link for the shared HLS Test Report document: ${item.company_name} (${item.scheme}, ${item.state}).`);
+      setSubject(`Sharing HLS Test Report: ${item.company_name}`);
+      setMessage(`Please find the link for the shared HLS Test Report document for ${item.company_name}.`);
       setEmailSent(false);
       setIsSending(false);
     }
@@ -1163,7 +979,7 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
 
     const rawDigits = whatsapp.replace(/\D/g, '');
     const to = rawDigits.startsWith('91') && rawDigits.length === 12 ? rawDigits : `91${rawDigits}`;
-    const docName = `HLS Test Report (${item.company_name} - ${item.scheme})`;
+    const docName = `HLS Test Report (${item.company_name})`;
     const docLink = item.file_url || 'N/A';
 
     try {
@@ -1208,7 +1024,7 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
       return false;
     }
 
-    const docName = `HLS Test Report (${item.company_name} - ${item.scheme})`;
+    const docName = `HLS Test Report (${item.company_name})`;
     const docLink = item.file_url || '';
 
     try {
@@ -1311,7 +1127,7 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Document</label>
             <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm text-indigo-700 font-medium truncate">
-              📄 HLS Report: {item.company_name} ({item.scheme})
+              📄 HLS Report: {item.company_name}
             </div>
           </div>
 
@@ -1319,7 +1135,6 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Recipient Name</label>
             <input
               type="text"
-              required
               value={recipientName}
               onChange={(e) => setRecipientName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-700"
