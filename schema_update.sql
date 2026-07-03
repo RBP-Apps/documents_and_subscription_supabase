@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS public.pump_experience_certificates (
     company_name TEXT,
     scheme TEXT,
     department TEXT,
+    year TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -60,4 +61,5 @@ CREATE TABLE IF NOT EXISTS public.pump_experience_certificates (
 ALTER TABLE public.pump_experience_certificates 
 ADD COLUMN IF NOT EXISTS company_name TEXT,
 ADD COLUMN IF NOT EXISTS scheme TEXT,
-ADD COLUMN IF NOT EXISTS department TEXT;
+ADD COLUMN IF NOT EXISTS department TEXT,
+ADD COLUMN IF NOT EXISTS year TEXT;

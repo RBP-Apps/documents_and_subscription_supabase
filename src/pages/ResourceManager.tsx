@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, CreditCard, Shield, Landmark, Mail, FolderOpen, Award } from 'lucide-react';
+import { FileText, CreditCard, Shield, Landmark, Mail, FolderOpen } from 'lucide-react';
 import AllDocuments from './document/AllDocuments';
 import WorkOrders from './ProjectDocuments/WorkOrders/WorkOrders';
 import Tenders from './ProjectDocuments/Tenders/Tenders';
@@ -24,9 +24,9 @@ import useHeaderStore from '../store/headerStore';
 import { useEffect } from 'react';
 
 const ResourceManager = () => {
-  const [activeTab, setActiveTab] = useState<'documents' | 'subscriptions' | 'bg' | 'insurance' | 'propertytax' | 'emailrenewal' | 'projectdocuments' | 'experiencecertificates'>('documents');
+  const [activeTab, setActiveTab] = useState<'documents' | 'subscriptions' | 'bg' | 'insurance' | 'propertytax' | 'emailrenewal' | 'projectdocuments'>('documents');
   const [activeInsuranceSubTab, setActiveInsuranceSubTab] = useState<'vehicle' | 'health' | 'life' | 'general'>('vehicle');
-  const [activeProjectSubTab, setActiveProjectSubTab] = useState<'workorders' | 'tenders' | 'testreports' | 'completionreports'>('workorders');
+  const [activeProjectSubTab, setActiveProjectSubTab] = useState<'workorders' | 'tenders' | 'testreports' | 'experiencecertificates'>('workorders');
   const [activeGeneralSubTab, setActiveGeneralSubTab] = useState<'building' | 'workman' | 'staff' | 'construction' | 'complex' | 'fire'>('building');
   const [activeTestReportSubTab, setActiveTestReportSubTab] = useState<'hls' | 'pump' | 'pannel'>('hls');
   const [activeExperienceSubTab, setActiveExperienceSubTab] = useState<'pump'>('pump');
@@ -110,16 +110,6 @@ const ResourceManager = () => {
           <FolderOpen size={18} />
           <span>Project Documents</span>
         </button>
-        <button
-          onClick={() => setActiveTab('experiencecertificates')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all ${activeTab === 'experiencecertificates'
-              ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100'
-              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-            }`}
-        >
-          <Award size={18} />
-          <span>Experience Certificates</span>
-        </button>
       </div>
 
       {/* Project Documents Sub-tabs */}
@@ -153,28 +143,13 @@ const ResourceManager = () => {
             Test Reports
           </button>
           <button
-            onClick={() => setActiveProjectSubTab('completionreports')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold transition-all ${activeProjectSubTab === 'completionreports'
+            onClick={() => setActiveProjectSubTab('experiencecertificates')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold transition-all ${activeProjectSubTab === 'experiencecertificates'
                 ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100'
                 : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
               }`}
           >
-            Completion Reports
-          </button>
-        </div>
-      )}
-
-      {/* Experience Certificates Sub-tabs */}
-      {activeTab === 'experiencecertificates' && (
-        <div className="bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 flex gap-2">
-          <button
-            onClick={() => setActiveExperienceSubTab('pump')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold transition-all ${activeExperienceSubTab === 'pump'
-                ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100'
-                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-              }`}
-          >
-            Pump
+            Experience Certificates
           </button>
         </div>
       )}
@@ -280,6 +255,32 @@ const ResourceManager = () => {
         </div>
       )}
 
+      {/* Experience Certificates Dropdown */}
+      {activeTab === 'projectdocuments' && activeProjectSubTab === 'experiencecertificates' && (
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+              Experience Certificate Category
+            </label>
+            <p className="text-xs text-gray-400">Select an experience certificate category to view details</p>
+          </div>
+          <div className="relative min-w-[240px]">
+            <select
+              value={activeExperienceSubTab}
+              onChange={(e) => setActiveExperienceSubTab(e.target.value as any)}
+              className="appearance-none w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 text-gray-700 text-sm font-semibold cursor-pointer hover:bg-gray-100 transition-colors shadow-sm"
+            >
+              <option value="pump">Pump</option>
+            </select>
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab Content */}
       <div className="animate-fade-in">
         {activeTab === 'documents' ? (
@@ -318,10 +319,6 @@ const ResourceManager = () => {
           <div>
             <EmailRenewal />
           </div>
-        ) : activeTab === 'experiencecertificates' ? (
-          <div>
-            {activeExperienceSubTab === 'pump' && <PumpExperience />}
-          </div>
         ) : (
           <div>
             {activeProjectSubTab === 'workorders' && <WorkOrders />}
@@ -333,10 +330,10 @@ const ResourceManager = () => {
                 {activeTestReportSubTab === 'pannel' && <PannelTestReports />}
               </>
             )}
-            {activeProjectSubTab === 'completionreports' && (
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-500">
-                📁 Project Documents - Completion Reports (Coming Soon)
-              </div>
+            {activeProjectSubTab === 'experiencecertificates' && (
+              <>
+                {activeExperienceSubTab === 'pump' && <PumpExperience />}
+              </>
             )}
           </div>
         )}

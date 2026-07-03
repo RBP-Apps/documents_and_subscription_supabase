@@ -35,6 +35,7 @@ interface PumpExperienceCertificate {
   company_name?: string;
   scheme?: string;
   department?: string;
+  year?: string;
 }
 
 const formatBytes = (bytes: number, decimals: number = 2): string => {
@@ -176,7 +177,8 @@ const PumpExperience = () => {
       item.serial_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.scheme?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.department?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.year?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesClient = filterClient ? item.client_name === filterClient : true;
 
@@ -225,7 +227,7 @@ const PumpExperience = () => {
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by serial no, client, work order no, work name, company, scheme, department..."
+                  placeholder="Search by serial no, client, work order no, work name, company, scheme, department, year..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-full border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
@@ -268,6 +270,7 @@ const PumpExperience = () => {
                   <th className="px-6 py-4">COMPANY NAME</th>
                   <th className="px-6 py-4">SCHEME</th>
                   <th className="px-6 py-4">DEPARTMENT</th>
+                  <th className="px-6 py-4">YEAR</th>
                 </tr>
               </thead>
 
@@ -334,12 +337,13 @@ const PumpExperience = () => {
                     <td className="px-6 py-4 text-gray-600">{item.company_name || '-'}</td>
                     <td className="px-6 py-4 text-gray-600">{item.scheme || '-'}</td>
                     <td className="px-6 py-4 text-gray-600">{item.department || '-'}</td>
+                    <td className="px-6 py-4 text-gray-600">{item.year || '-'}</td>
                   </tr>
                 ))}
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={14} className="text-center py-12 text-gray-500">
+                    <td colSpan={15} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <Award size={48} className="text-gray-300" />
                         <p>No Pump Experience Certificate Records Found</p>
@@ -483,6 +487,7 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
   const [companyName, setCompanyName] = useState('');
   const [scheme, setScheme] = useState('');
   const [department, setDepartment] = useState('');
+  const [year, setYear] = useState('');
 
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
@@ -541,6 +546,7 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
             company_name: companyName || undefined,
             scheme: scheme || undefined,
             department: department || undefined,
+            year: year || undefined,
           },
         ])
         .select('id')
@@ -571,6 +577,7 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
         company_name: companyName || undefined,
         scheme: scheme || undefined,
         department: department || undefined,
+        year: year || undefined,
         created_at: new Date().toISOString(),
       };
 
@@ -664,7 +671,6 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
               />
             </div>
 
-            {/* Newly Requested Fields */}
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name</label>
               <input
@@ -693,6 +699,16 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
                 onChange={(e) => setDepartment(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                 placeholder="e.g. Water Resources Department"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Year</label>
+              <input
+                type="text"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. 2025-26"
               />
             </div>
 
@@ -767,10 +783,10 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
   const [pumpCapacity, setPumpCapacity] = useState(certData.pump_capacity);
   const [value, setValue] = useState(certData.value);
 
-  // Newly Requested Fields
   const [companyName, setCompanyName] = useState(certData.company_name || '');
   const [scheme, setScheme] = useState(certData.scheme || '');
   const [department, setDepartment] = useState(certData.department || '');
+  const [year, setYear] = useState(certData.year || '');
 
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState(certData.file_url ? 'Existing File' : '');
@@ -823,6 +839,7 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
           company_name: companyName || undefined,
           scheme: scheme || undefined,
           department: department || undefined,
+          year: year || undefined,
         })
         .eq('id', certData.id);
 
@@ -848,6 +865,7 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
               company_name: companyName || undefined,
               scheme: scheme || undefined,
               department: department || undefined,
+              year: year || undefined,
             }
           : item
       );
@@ -936,7 +954,6 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
               />
             </div>
 
-            {/* Newly Requested Fields */}
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name</label>
               <input
@@ -965,6 +982,16 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
                 onChange={(e) => setDepartment(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                 placeholder="e.g. Water Resources Department"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Year</label>
+              <input
+                type="text"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. 2025-26"
               />
             </div>
 
