@@ -130,82 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
         { label: "Collect NOC", path: "/loan/noc", icon: <ShieldCheck size={16} /> },
       ]
     },
-    // {
-    //   label: "BG",
-    //   icon: <Banknote size={20} />,
-    //   subItems: [
-    //     { label: "All BG", path: "/bg/all", icon: <List size={16} /> },
-    //   ]
-    // },
 
-//     {
-//       label: "Insurance",
-//       icon: <Shield size={20} />,
-//       subItems: [
-//         {
-//           label: "Vehicle Insurance",
-//           path: "/Insurance/vehicle",
-//           icon: <Shield size={16} />,
-//         },
-//         {
-//           label: "Health Insurance",
-//           path: "/Insurance/health",
-//           icon: <Shield size={16} />,
-//         },
-//         {
-//           label: "Life Insurance",
-//           path: "/Insurance/life",
-//           icon: <Shield size={16} />,
-//         },
-//        {
-//   label: "General Insurance",
-//   icon: <Shield size={16} />,
-//   subItems: [
-//     {
-//       label: "Building",
-//       path: "/Insurance/building",
-//       icon: <Shield size={16} />,
-//     },
-//     {
-//       label: "Employee's Compensation",
-//       path: "/Insurance/workmancompensation",
-//       icon: <Shield size={16} />,
-//     },
-//     {
-//       label: "Company Staff",
-//       path: "/Insurance/companystaff",
-//       icon: <Shield size={16} />,
-//     },
-//     {
-//       label: "Construction",
-//       path: "/Insurance/construction",
-//       icon: <Shield size={16} />,
-//     },
-//     {
-//       label: "Akashdeep Complex",
-//       path: "/Insurance/akashdeepcomplex",
-//       icon: <Shield size={16} />,
-//     },
-//     {
-//       label: "Fire Policy",
-//       path: "/Insurance/firepolicy",
-//       icon: <Shield size={16} />,
-//     },
-//   ],
-// },
-//       ],
-//     },
-
-    // {
-    //   label: "Property Tax",
-    //   path: "/propertytax",
-    //   icon: <SettingsIcon size={20} />,
-    // },
-    // {
-    //   label: "Email Renewal",
-    //   path: "/emailrenewal",
-    //   icon: <SettingsIcon size={20} />,
-    // },
     {
       label: "Settings",
       path: "/settings",
@@ -258,8 +183,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
           <button
             onClick={(e) => toggleSection(item.label, e)}
             className={`w-full flex items-center justify-between py-3 pr-4 rounded-xl transition-all duration-200 ${isOpen || isSectionActive(item, location.pathname)
-                ? 'text-indigo-600 bg-indigo-50 font-medium'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
+              ? 'text-indigo-600 bg-indigo-50 font-medium'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
               }`}
             style={{ paddingLeft: depth === 0 ? '1rem' : paddingLeft }}
           >
@@ -284,8 +209,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
           <button
             onClick={() => handleNavigation(item.path!)}
             className={`w-full flex items-center gap-3 py-2.5 pr-4 rounded-xl transition-all duration-200 ${isActiveLink
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 font-medium"
-                : "text-gray-600 hover:text-indigo-600 hover:bg-gray-100"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 font-medium"
+              : "text-gray-600 hover:text-indigo-600 hover:bg-gray-100"
               }`}
             style={{ paddingLeft: depth === 0 ? '1rem' : paddingLeft }}
           >
