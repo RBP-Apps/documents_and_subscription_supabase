@@ -19,6 +19,9 @@ import EmailRenewal from './Email Renewal/EmailRenewal';
 import HlsTestReports from './ProjectDocuments/TestReports/HlsTestReports';
 import PumpTestReports from './ProjectDocuments/TestReports/PumpTestReports';
 import PannelTestReports from './ProjectDocuments/TestReports/PannelTestReports';
+import PVModuleTestReports from './ProjectDocuments/TestReports/PV_Module';
+import PVWaterPumpingTestReports from './ProjectDocuments/TestReports/PV_water_pumping';
+import SolarPhotovoltaicTestReports from './ProjectDocuments/TestReports/Solor_photovoltaic';
 import PumpExperience from './ExperienceCertificates/PumpExperience';
 import useHeaderStore from '../store/headerStore';
 import { useEffect } from 'react';
@@ -28,7 +31,7 @@ const ResourceManager = () => {
   const [activeInsuranceSubTab, setActiveInsuranceSubTab] = useState<'vehicle' | 'health' | 'life' | 'general'>('vehicle');
   const [activeProjectSubTab, setActiveProjectSubTab] = useState<'workorders' | 'tenders' | 'testreports' | 'experiencecertificates'>('workorders');
   const [activeGeneralSubTab, setActiveGeneralSubTab] = useState<'building' | 'workman' | 'staff' | 'construction' | 'complex' | 'fire'>('building');
-  const [activeTestReportSubTab, setActiveTestReportSubTab] = useState<'hls' | 'pump' | 'pannel'>('hls');
+  const [activeTestReportSubTab, setActiveTestReportSubTab] = useState<'hls' | 'pump' | 'pannel' | 'pv_module' | 'pv_water_pumping' | 'solar_photovoltaic'>('hls');
   const [activeExperienceSubTab, setActiveExperienceSubTab] = useState<'pump'>('pump');
   const { setTitle } = useHeaderStore();
 
@@ -243,8 +246,11 @@ const ResourceManager = () => {
               className="appearance-none w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 text-gray-700 text-sm font-semibold cursor-pointer hover:bg-gray-100 transition-colors shadow-sm"
             >
               <option value="hls">HLS</option>
-              <option value="pump">Pump</option>
-              <option value="pannel">Pannel</option>
+              {/* <option value="pump">Pump</option>
+              <option value="pannel">Pannel</option> */}
+              <option value="pv_module">PV Module</option>
+              <option value="pv_water_pumping">PV Water Pumping</option>
+              <option value="solar_photovoltaic">Solar Photovoltaic</option>
             </select>
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-500">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -328,6 +334,9 @@ const ResourceManager = () => {
                 {activeTestReportSubTab === 'hls' && <HlsTestReports />}
                 {activeTestReportSubTab === 'pump' && <PumpTestReports />}
                 {activeTestReportSubTab === 'pannel' && <PannelTestReports />}
+                {activeTestReportSubTab === 'pv_module' && <PVModuleTestReports />}
+                {activeTestReportSubTab === 'pv_water_pumping' && <PVWaterPumpingTestReports />}
+                {activeTestReportSubTab === 'solar_photovoltaic' && <SolarPhotovoltaicTestReports />}
               </>
             )}
             {activeProjectSubTab === 'experiencecertificates' && (

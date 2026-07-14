@@ -20,19 +20,19 @@ import { toast } from 'react-hot-toast';
 import supabase from '../../../utils/supabase';
 import useHeaderStore from '../../../store/headerStore';
 
-interface HlsReport {
+interface PvModuleReport {
   id: number;
   company_name: string;
-  date: string;
-  report_no: string;
-  test_description: string;
-  pv_panel: string;
-  battery: string;
+  module_manufacturer: string;
+  year: string;
+  test_report_no: string;
+  type: string;
+  number_of_sample: number | null;
+  model: string;
   file_url?: string;
   file_size?: string;
   created_at: string;
   serial_no?: string;
-  module_manufacturer?: string;
 }
 
 const formatBytes = (bytes: number, decimals: number = 2): string => {
@@ -44,23 +44,23 @@ const formatBytes = (bytes: number, decimals: number = 2): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
-const HlsTestReports = () => {
+const PVModuleTestReports = () => {
   const { setTitle } = useHeaderStore();
-  const [data, setData] = useState<HlsReport[]>([]);
+  const [data, setData] = useState<PvModuleReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCompany, setFilterCompany] = useState('');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<HlsReport | null>(null);
+  const [selectedReport, setSelectedReport] = useState<PvModuleReport | null>(null);
 
   const [shareOpen, setShareOpen] = useState(false);
   const [shareType, setShareType] = useState<'email' | 'whatsapp' | 'both' | null>(null);
-  const [selectedItem, setSelectedItem] = useState<HlsReport | null>(null);
+  const [selectedItem, setSelectedItem] = useState<PvModuleReport | null>(null);
 
   useEffect(() => {
-    setTitle('HLS Test Reports');
+    setTitle('PV Module Test Reports');
     fetchReports();
   }, [setTitle]);
 
@@ -68,7 +68,7 @@ const HlsTestReports = () => {
     try {
       setLoading(true);
       const { data: dbData, error } = await supabase
-        .from('hls_test_reports')
+        .from('pv_module_test_reports')
         .select('*')
         .order('id', { ascending: false });
 
@@ -76,15 +76,15 @@ const HlsTestReports = () => {
       setData(dbData || []);
     } catch (error: any) {
       console.warn('Supabase fetch failed, trying local storage fallback:', error.message);
-      const local = localStorage.getItem('hls_test_reports');
+      const local = localStorage.getItem('pv_module_test_reports');
       setData(local ? JSON.parse(local) : []);
     } finally {
       setLoading(false);
     }
   };
 
-  const saveToLocalStorage = (newData: HlsReport[]) => {
-    localStorage.setItem('hls_test_reports', JSON.stringify(newData));
+  const saveToLocalStorage = (newData: PvModuleReport[]) => {
+    localStorage.setItem('pv_module_test_reports', JSON.stringify(newData));
   };
 
   const handleDelete = async (id: number) => {
@@ -92,7 +92,7 @@ const HlsTestReports = () => {
     if (!confirmDelete) return;
 
     try {
-      const { error } = await supabase.from('hls_test_reports').delete().eq('id', id);
+      const { error } = await supabase.from('pv_module_test_reports').delete().eq('id', id);
       if (error) throw error;
       toast.success('Deleted Successfully');
       fetchReports();
@@ -105,7 +105,7 @@ const HlsTestReports = () => {
     }
   };
 
-  const handleViewFile = (item: HlsReport) => {
+  const handleViewFile = (item: PvModuleReport) => {
     const fileLink = item.file_url;
     if (fileLink) {
       window.open(fileLink, '_blank');
@@ -114,7 +114,7 @@ const HlsTestReports = () => {
     }
   };
 
-  const handleEdit = (item: HlsReport) => {
+  const handleEdit = (item: PvModuleReport) => {
     setSelectedReport(item);
     setIsEditModalOpen(true);
   };
@@ -122,12 +122,12 @@ const HlsTestReports = () => {
   const filteredData = data.filter((item) => {
     const matchesSearch =
       item.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.report_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.serial_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.module_manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.test_description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.pv_panel?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.battery?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.year?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.test_report_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.serial_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.model?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesCompany = filterCompany ? item.company_name === filterCompany : true;
 
@@ -154,9 +154,9 @@ const HlsTestReports = () => {
               <div>
                 <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <FileText className="text-indigo-600" size={24} />
-                  HLS(Home Light System) Test Reports
+                  PV Module Test Reports
                 </h1>
-                <p className="text-gray-500 text-xs mt-1">Manage all HLS Test Report records</p>
+                <p className="text-gray-500 text-xs mt-1">Manage all PV Module Test Report records</p>
               </div>
 
               <button
@@ -164,7 +164,7 @@ const HlsTestReports = () => {
                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm hover:shadow-md"
               >
                 <Plus size={18} />
-                Add HLS Report
+                Add PV Module Report
               </button>
             </div>
           </div>
@@ -176,7 +176,7 @@ const HlsTestReports = () => {
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by report no, company name, test description, pv panel..."
+                  placeholder="Search by company name, manufacturer, year, report no, type, model..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-full border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
@@ -210,20 +210,20 @@ const HlsTestReports = () => {
                   <th className="px-6 py-4 text-center">SHARE</th>
                   <th className="px-6 py-4 text-center">DOCUMENT</th>
                   <th className="px-6 py-4 text-center">FILE SIZE</th>
-                  <th className="px-6 py-4">DATE</th>
                   <th className="px-6 py-4">COMPANY NAME</th>
-                  <th className="px-6 py-4">Module manufaturer</th>
-                  <th className="px-6 py-4">REPORT NO</th>
-                  <th className="px-6 py-4">TEST DESCRIPTION</th>
-                  <th className="px-6 py-4">PV PANEL</th>
-                  <th className="px-6 py-4">BATTERY</th>
+                  <th className="px-6 py-4">MODULE MANUFACTURER</th>
+                  <th className="px-6 py-4">YEAR</th>
+                  <th className="px-6 py-4">TEST REPORT NO</th>
+                  <th className="px-6 py-4">TYPE</th>
+                  <th className="px-6 py-4">NUMBER OF SAMPLE</th>
+                  <th className="px-6 py-4">MODEL</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-gray-100 text-sm">
                 {filteredData.map((item) => (
                   <tr key={item.id} className="hover:bg-indigo-50/30 transition">
-                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-500 font-medium">
                       {item.serial_no || '-'}
                     </td>
                     <td className="px-6 py-4">
@@ -270,17 +270,15 @@ const HlsTestReports = () => {
                     <td className="px-6 py-4 text-center text-gray-500 font-medium whitespace-nowrap">
                       {item.file_size || '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
-                      {item.date ? new Date(item.date).toLocaleDateString('en-IN') : '-'}
-                    </td>
                     <td className="px-6 py-4 font-medium text-gray-900">{item.company_name}</td>
                     <td className="px-6 py-4 text-gray-600">{item.module_manufacturer || '-'}</td>
+                    <td className="px-6 py-4 text-gray-600 whitespace-nowrap">{item.year || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="font-semibold text-indigo-600">{item.report_no || '-'}</span>
+                      <span className="font-semibold text-indigo-600">{item.test_report_no || '-'}</span>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{item.test_description || '-'}</td>
-                    <td className="px-6 py-4 text-gray-600">{item.pv_panel || '-'}</td>
-                    <td className="px-6 py-4 text-gray-600">{item.battery || '-'}</td>
+                    <td className="px-6 py-4 text-gray-600">{item.type || '-'}</td>
+                    <td className="px-6 py-4 text-gray-600">{item.number_of_sample || '-'}</td>
+                    <td className="px-6 py-4 text-gray-600">{item.model || '-'}</td>
                   </tr>
                 ))}
 
@@ -289,7 +287,7 @@ const HlsTestReports = () => {
                     <td colSpan={12} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <FileText size={48} className="text-gray-300" />
-                        <p>No HLS Test Report Records Found</p>
+                        <p>No PV Module Test Report Records Found</p>
                       </div>
                     </td>
                   </tr>
@@ -301,7 +299,7 @@ const HlsTestReports = () => {
       </div>
 
       {isAddModalOpen && (
-        <AddHlsModal
+        <AddPvModal
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           onSuccess={fetchReports}
@@ -311,7 +309,7 @@ const HlsTestReports = () => {
       )}
 
       {isEditModalOpen && selectedReport && (
-        <EditHlsModal
+        <EditPvModal
           isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);
@@ -324,7 +322,7 @@ const HlsTestReports = () => {
         />
       )}
 
-      <ShareHlsModal
+      <SharePvModal
         isOpen={shareOpen}
         onClose={() => {
           setShareOpen(false);
@@ -343,8 +341,8 @@ const ShareDropdown = ({
   item,
   onShare,
 }: {
-  item: HlsReport;
-  onShare: (type: 'email' | 'whatsapp' | 'both', item: HlsReport) => void;
+  item: PvModuleReport;
+  onShare: (type: 'email' | 'whatsapp' | 'both', item: PvModuleReport) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -406,28 +404,28 @@ const ShareDropdown = ({
 };
 
 // Add Modal Component
-interface AddHlsModalProps {
+interface AddPvModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  currentData: HlsReport[];
-  saveLocal: (data: HlsReport[]) => void;
+  currentData: PvModuleReport[];
+  saveLocal: (data: PvModuleReport[]) => void;
 }
 
-const AddHlsModal: React.FC<AddHlsModalProps> = ({
+const AddPvModal: React.FC<AddPvModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
   currentData,
   saveLocal,
 }) => {
-  const [date, setDate] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [moduleManufacturer, setModuleManufacturer] = useState('');
-  const [reportNo, setReportNo] = useState('');
-  const [testDescription, setTestDescription] = useState('');
-  const [pvPanel, setPvPanel] = useState('');
-  const [battery, setBattery] = useState('');
+  const [year, setYear] = useState('');
+  const [testReportNo, setTestReportNo] = useState('');
+  const [type, setType] = useState('');
+  const [numberOfSample, setNumberOfSample] = useState<string>('');
+  const [model, setModel] = useState('');
 
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
@@ -451,6 +449,10 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!companyName) {
+      toast.error('Company Name is required');
+      return;
+    }
 
     setIsSubmitting(true);
     let fileUrl = '';
@@ -458,7 +460,7 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
     try {
       if (file) {
         const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filePath = `test_reports/hls/${Date.now()}_${cleanFileName}`;
+        const filePath = `test_reports/pv_module/${Date.now()}_${cleanFileName}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('insurance')
           .upload(filePath, file, { cacheControl: '3600', upsert: false });
@@ -473,7 +475,7 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
       let nextSerialNo = '';
       try {
         const { data: reports, error: serialError } = await supabase
-          .from('hls_test_reports')
+          .from('pv_module_test_reports')
           .select('serial_no');
         
         if (serialError) throw serialError;
@@ -482,7 +484,7 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
         if (reports && reports.length > 0) {
           reports.forEach((item) => {
             if (item.serial_no) {
-              const match = item.serial_no.match(/HLS-(\d+)/);
+              const match = item.serial_no.match(/PVM-(\d+)/);
               if (match) {
                 const num = parseInt(match[1], 10);
                 if (num > maxNum) {
@@ -492,13 +494,13 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
             }
           });
         }
-        nextSerialNo = `HLS-${String(maxNum + 1).padStart(3, '0')}`;
+        nextSerialNo = `PVM-${String(maxNum + 1).padStart(3, '0')}`;
       } catch (err) {
         console.warn('Error fetching serial_no from database, falling back to local calculation:', err);
         let maxNum = 0;
         currentData.forEach((item) => {
           if (item.serial_no) {
-            const match = item.serial_no.match(/HLS-(\d+)/);
+            const match = item.serial_no.match(/PVM-(\d+)/);
             if (match) {
               const num = parseInt(match[1], 10);
               if (num > maxNum) {
@@ -507,24 +509,24 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
             }
           }
         });
-        nextSerialNo = `HLS-${String(maxNum + 1).padStart(3, '0')}`;
+        nextSerialNo = `PVM-${String(maxNum + 1).padStart(3, '0')}`;
       }
 
       // Try inserting into Supabase
       const { data: inserted, error: insertError } = await supabase
-        .from('hls_test_reports')
+        .from('pv_module_test_reports')
         .insert([
           {
             company_name: companyName,
-            date: date || null,
-            report_no: reportNo || null,
-            test_description: testDescription || null,
-            pv_panel: pvPanel || null,
-            battery: battery || null,
+            module_manufacturer: moduleManufacturer || null,
+            year: year || null,
+            test_report_no: testReportNo || null,
+            type: type || null,
+            number_of_sample: numberOfSample ? parseInt(numberOfSample, 10) : null,
+            model: model || null,
             file_url: fileUrl || null,
             file_size: fileSize || null,
             serial_no: nextSerialNo,
-            module_manufacturer: moduleManufacturer || null,
           },
         ])
         .select('id')
@@ -532,19 +534,19 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
 
       if (insertError) throw insertError;
 
-      toast.success('HLS Test Report added successfully');
+      toast.success('PV Module Test Report added successfully');
       onSuccess();
       onClose();
     } catch (error: any) {
       console.warn('Supabase insert failed, using local storage:', error.message);
       // Local storage fallback
       const newId = Date.now();
-      
+
       // Calculate local next serial_no
       let maxNum = 0;
       currentData.forEach((item) => {
         if (item.serial_no) {
-          const match = item.serial_no.match(/HLS-(\d+)/);
+          const match = item.serial_no.match(/PVM-(\d+)/);
           if (match) {
             const num = parseInt(match[1], 10);
             if (num > maxNum) {
@@ -553,26 +555,26 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
           }
         }
       });
-      const nextSerialNoLocal = `HLS-${String(maxNum + 1).padStart(3, '0')}`;
+      const nextSerialNoLocal = `PVM-${String(maxNum + 1).padStart(3, '0')}`;
 
-      const newReport: HlsReport = {
+      const newReport: PvModuleReport = {
         id: newId,
-        report_no: reportNo || undefined,
+        test_report_no: testReportNo || undefined,
         company_name: companyName,
-        date: date || undefined,
-        test_description: testDescription || undefined,
-        pv_panel: pvPanel || undefined,
-        battery: battery || undefined,
+        module_manufacturer: moduleManufacturer,
+        year: year,
+        type: type,
+        number_of_sample: numberOfSample ? parseInt(numberOfSample, 10) : null,
+        model: model,
         file_url: fileUrl || undefined,
         file_size: fileSize || undefined,
         created_at: new Date().toISOString(),
         serial_no: nextSerialNoLocal,
-        module_manufacturer: moduleManufacturer || undefined,
       };
 
       const updated = [newReport, ...currentData];
       saveLocal(updated);
-      toast.success('HLS Test Report added successfully (Local)');
+      toast.success('PV Module Test Report added successfully (Local)');
       onSuccess();
       onClose();
     } finally {
@@ -585,7 +587,7 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
       <div className="relative my-4 w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-gray-800">Add HLS Test Report</h2>
+            <h2 className="text-lg font-bold text-gray-800">Add PV Module Test Report</h2>
           </div>
           <button onClick={onClose} disabled={isSubmitting} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full transition">
             <X size={20} />
@@ -606,25 +608,6 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Date</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Report No</label>
-              <input
-                type="text"
-                value={reportNo}
-                onChange={(e) => setReportNo(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. REP-12345"
-              />
-            </div>
-            <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Module Manufacturer</label>
               <input
                 type="text"
@@ -635,33 +618,53 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">PV Panel</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Year</label>
               <input
                 type="text"
-                value={pvPanel}
-                onChange={(e) => setPvPanel(e.target.value)}
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. 335Wp Polycrystalline"
+                placeholder="e.g. 2026"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Battery</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Test Report No</label>
               <input
                 type="text"
-                value={battery}
-                onChange={(e) => setBattery(e.target.value)}
+                value={testReportNo}
+                onChange={(e) => setTestReportNo(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. 12V 80Ah"
+                placeholder="e.g. PV-12345"
               />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Test Description</label>
-              <textarea
-                value={testDescription}
-                onChange={(e) => setTestDescription(e.target.value)}
-                rows={3}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                placeholder="Describe the test procedures, criteria or results..."
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Type</label>
+              <input
+                type="text"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. Monocrystalline"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Number of Sample</label>
+              <input
+                type="number"
+                value={numberOfSample}
+                onChange={(e) => setNumberOfSample(e.target.value)}
+                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. 5"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Model</label>
+              <input
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. TP-540"
               />
             </div>
 
@@ -670,13 +673,13 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
               <div className="flex items-center gap-3">
                 <input
                   type="file"
-                  id="hls-add-file"
+                  id="pv-add-file"
                   onChange={handleFileChange}
                   className="hidden"
                   accept=".pdf,.jpg,.jpeg,.png"
                 />
                 <label
-                  htmlFor="hls-add-file"
+                  htmlFor="pv-add-file"
                   className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:border-indigo-500 hover:text-indigo-600 bg-white rounded-lg cursor-pointer text-xs font-semibold shadow-sm transition"
                 >
                   <Upload size={14} />
@@ -712,16 +715,16 @@ const AddHlsModal: React.FC<AddHlsModalProps> = ({
 };
 
 // Edit Modal Component
-interface EditHlsModalProps {
+interface EditPvModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  reportData: HlsReport;
-  currentData: HlsReport[];
-  saveLocal: (data: HlsReport[]) => void;
+  reportData: PvModuleReport;
+  currentData: PvModuleReport[];
+  saveLocal: (data: PvModuleReport[]) => void;
 }
 
-const EditHlsModal: React.FC<EditHlsModalProps> = ({
+const EditPvModal: React.FC<EditPvModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
@@ -729,13 +732,17 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
   currentData,
   saveLocal,
 }) => {
-  const [date, setDate] = useState(reportData.date || '');
   const [companyName, setCompanyName] = useState(reportData.company_name || '');
   const [moduleManufacturer, setModuleManufacturer] = useState(reportData.module_manufacturer || '');
-  const [reportNo, setReportNo] = useState(reportData.report_no || '');
-  const [testDescription, setTestDescription] = useState(reportData.test_description || '');
-  const [pvPanel, setPvPanel] = useState(reportData.pv_panel || '');
-  const [battery, setBattery] = useState(reportData.battery || '');
+  const [year, setYear] = useState(reportData.year || '');
+  const [testReportNo, setTestReportNo] = useState(reportData.test_report_no || '');
+  const [type, setType] = useState(reportData.type || '');
+  const [numberOfSample, setNumberOfSample] = useState<string>(
+    reportData.number_of_sample !== null && reportData.number_of_sample !== undefined
+      ? reportData.number_of_sample.toString()
+      : ''
+  );
+  const [model, setModel] = useState(reportData.model || '');
 
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState(reportData.file_url ? 'Existing File' : '');
@@ -759,13 +766,18 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!companyName) {
+      toast.error('Company Name is required');
+      return;
+    }
+
     setIsSubmitting(true);
     let fileUrl = reportData.file_url || '';
 
     try {
       if (file) {
         const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filePath = `test_reports/hls/${Date.now()}_${cleanFileName}`;
+        const filePath = `test_reports/pv_module/${Date.now()}_${cleanFileName}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('insurance')
           .upload(filePath, file, { cacheControl: '3600', upsert: false });
@@ -778,23 +790,23 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
 
       // Try updating in Supabase
       const { error: updateError } = await supabase
-        .from('hls_test_reports')
+        .from('pv_module_test_reports')
         .update({
           company_name: companyName,
-          date: date || null,
-          report_no: reportNo || null,
-          test_description: testDescription || null,
-          pv_panel: pvPanel || null,
-          battery: battery || null,
+          module_manufacturer: moduleManufacturer || null,
+          year: year || null,
+          test_report_no: testReportNo || null,
+          type: type || null,
+          number_of_sample: numberOfSample ? parseInt(numberOfSample, 10) : null,
+          model: model || null,
           file_url: fileUrl || null,
           file_size: fileSize || null,
-          module_manufacturer: moduleManufacturer || null,
         })
         .eq('id', reportData.id);
 
       if (updateError) throw updateError;
 
-      toast.success('HLS Test Report updated successfully');
+      toast.success('PV Module Test Report updated successfully');
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -805,20 +817,20 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
           ? {
               ...item,
               company_name: companyName,
-              date: date || undefined,
-              report_no: reportNo || undefined,
-              test_description: testDescription || undefined,
-              pv_panel: pvPanel || undefined,
-              battery: battery || undefined,
+              module_manufacturer: moduleManufacturer,
+              year: year,
+              test_report_no: testReportNo,
+              type: type,
+              number_of_sample: numberOfSample ? parseInt(numberOfSample, 10) : null,
+              model: model,
               file_url: fileUrl || undefined,
               file_size: fileSize || undefined,
-              module_manufacturer: moduleManufacturer || undefined,
             }
           : item
       );
 
       saveLocal(updated);
-      toast.success('HLS Test Report updated successfully (Local)');
+      toast.success('PV Module Test Report updated successfully (Local)');
       onSuccess();
       onClose();
     } finally {
@@ -831,7 +843,7 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
       <div className="relative my-4 w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-gray-800">Edit HLS Test Report</h2>
+            <h2 className="text-lg font-bold text-gray-800">Edit PV Module Test Report</h2>
           </div>
           <button onClick={onClose} disabled={isSubmitting} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full transition">
             <X size={20} />
@@ -851,62 +863,57 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Date</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Report No</label>
-              <input
-                type="text"
-                value={reportNo}
-                onChange={(e) => setReportNo(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. REP-12345"
-              />
-            </div>
-            <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Module Manufacturer</label>
               <input
                 type="text"
                 value={moduleManufacturer}
                 onChange={(e) => setModuleManufacturer(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. Tata Power Solar"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">PV Panel</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Year</label>
               <input
                 type="text"
-                value={pvPanel}
-                onChange={(e) => setPvPanel(e.target.value)}
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. 335Wp Polycrystalline"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Battery</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Test Report No</label>
               <input
                 type="text"
-                value={battery}
-                onChange={(e) => setBattery(e.target.value)}
+                value={testReportNo}
+                onChange={(e) => setTestReportNo(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. 12V 80Ah"
               />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Test Description</label>
-              <textarea
-                value={testDescription}
-                onChange={(e) => setTestDescription(e.target.value)}
-                rows={3}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                placeholder="Describe the test procedures, criteria or results..."
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Type</label>
+              <input
+                type="text"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Number of Sample</label>
+              <input
+                type="number"
+                value={numberOfSample}
+                onChange={(e) => setNumberOfSample(e.target.value)}
+                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Model</label>
+              <input
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
 
@@ -915,13 +922,13 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
               <div className="flex items-center gap-3">
                 <input
                   type="file"
-                  id="hls-edit-file"
+                  id="pv-edit-file"
                   onChange={handleFileChange}
                   className="hidden"
                   accept=".pdf,.jpg,.jpeg,.png"
                 />
                 <label
-                  htmlFor="hls-edit-file"
+                  htmlFor="pv-edit-file"
                   className="flex items-center gap-2 px-4 py-2 border border-gray-300 hover:border-indigo-500 hover:text-indigo-600 bg-white rounded-lg cursor-pointer text-xs font-semibold shadow-sm transition"
                 >
                   <Upload size={14} />
@@ -957,14 +964,14 @@ const EditHlsModal: React.FC<EditHlsModalProps> = ({
 };
 
 // Share Modal Component
-interface ShareHlsModalProps {
+interface SharePvModalProps {
   isOpen: boolean;
   onClose: () => void;
   type: 'email' | 'whatsapp' | 'both' | null;
-  item: HlsReport | null;
+  item: PvModuleReport | null;
 }
 
-const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
+const SharePvModal: React.FC<SharePvModalProps> = ({
   isOpen,
   onClose,
   type,
@@ -983,8 +990,8 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
       setRecipientName('');
       setEmail('');
       setWhatsapp('');
-      setSubject(`Sharing HLS Test Report: ${item.company_name}`);
-      setMessage(`Please find the link for the shared HLS Test Report document for ${item.company_name}.`);
+      setSubject(`Sharing PV Module Test Report: ${item.company_name}`);
+      setMessage(`Please find the link for the shared PV Module Test Report document for ${item.company_name}.`);
       setEmailSent(false);
       setIsSending(false);
     }
@@ -1000,7 +1007,7 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
 
     const rawDigits = whatsapp.replace(/\D/g, '');
     const to = rawDigits.startsWith('91') && rawDigits.length === 12 ? rawDigits : `91${rawDigits}`;
-    const docName = `HLS Test Report (${item.company_name})`;
+    const docName = `PV Module Test Report (${item.company_name})`;
     const docLink = item.file_url || 'N/A';
 
     try {
@@ -1010,7 +1017,7 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
         documentName: docName,
         category: 'Project Documents',
         company: item.company_name,
-        type: 'HLS Test Report',
+        type: 'PV Module Test Report',
         link: docLink,
       });
 
@@ -1019,13 +1026,13 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
         {
           name: recipientName,
           document_name: docName,
-          document_type: 'HLS Test Report',
+          document_type: 'PV Module Test Report',
           category: 'Project Documents',
-          serial_no: item.report_no || '',
+          serial_no: item.serial_no || item.test_report_no || '',
           image: docLink !== 'N/A' ? docLink : null,
           share_method: 'WhatsApp',
           number: whatsapp,
-          source_sheet: 'HLS Test Reports',
+          source_sheet: 'PV Module Test Reports',
         },
       ]);
       if (error) console.error('Error logging WhatsApp share:', error);
@@ -1045,7 +1052,7 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
       return false;
     }
 
-    const docName = `HLS Test Report (${item.company_name})`;
+    const docName = `PV Module Test Report (${item.company_name})`;
     const docLink = item.file_url || '';
 
     try {
@@ -1057,10 +1064,10 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
           email: email,
           document_name: docName,
           category: 'Project Documents',
-          document_type: 'HLS Test Report',
+          document_type: 'PV Module Test Report',
           document_link: docLink,
           message: message,
-          serial_no: item.report_no || '',
+          serial_no: item.serial_no || item.test_report_no || '',
           company: item.company_name || '',
         },
         'JN3T3k1LsQ0KSOn-A'
@@ -1072,12 +1079,12 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
           name: recipientName,
           email: email,
           document_name: docName,
-          document_type: 'HLS Test Report',
+          document_type: 'PV Module Test Report',
           category: 'Project Documents',
-          serial_no: item.serial_no,
+          serial_no: item.serial_no || item.test_report_no || '',
           image: docLink || null,
           share_method: 'Email',
-          source_sheet: 'HLS Test Reports',
+          source_sheet: 'PV Module Test Reports',
         },
       ]);
       if (error) console.error('Error logging email share:', error);
@@ -1148,7 +1155,7 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Document</label>
             <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm text-indigo-700 font-medium truncate">
-              📄 HLS Report: {item.company_name}
+              📄 PV Module Report: {item.company_name}
             </div>
           </div>
 
@@ -1246,4 +1253,4 @@ const ShareHlsModal: React.FC<ShareHlsModalProps> = ({
   );
 };
 
-export default HlsTestReports;
+export default PVModuleTestReports;
