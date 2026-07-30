@@ -115,3 +115,12 @@ CREATE TABLE IF NOT EXISTS public.solar_photovoltaic_test_reports (
     file_size TEXT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+-- ==============================================================
+-- SQL Schema Update for Tenders Table (Remove Capacity & Value)
+-- ==============================================================
+
+ALTER TABLE public.tenders 
+    DROP COLUMN IF EXISTS tender_capacity,
+    DROP COLUMN IF EXISTS tender_value;
+

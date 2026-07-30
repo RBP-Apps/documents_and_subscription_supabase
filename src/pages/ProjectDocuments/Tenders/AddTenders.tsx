@@ -25,8 +25,6 @@ interface TenderEntry {
   name_of_department: string;
   firm_name: string;
   tender_details: string;
-  tender_capacity: string;
-  tender_value: string;
   tender_start_date: string;
   tender_end_date: string;
   file: File | null;
@@ -47,8 +45,6 @@ const AddTenders: React.FC<AddTendersProps> = ({
       name_of_department: '',
       firm_name: '',
       tender_details: '',
-      tender_capacity: '',
-      tender_value: '',
       tender_start_date: '',
       tender_end_date: '',
       file: null,
@@ -104,8 +100,6 @@ const AddTenders: React.FC<AddTendersProps> = ({
       name_of_department: lastEntry.name_of_department || '',
       firm_name: lastEntry.firm_name || '',
       tender_details: lastEntry.tender_details || '',
-      tender_capacity: lastEntry.tender_capacity || '',
-      tender_value: lastEntry.tender_value || '',
       tender_start_date: lastEntry.tender_start_date || '',
       tender_end_date: lastEntry.tender_end_date || '',
       file: null,
@@ -134,8 +128,6 @@ const AddTenders: React.FC<AddTendersProps> = ({
         name_of_department: '',
         firm_name: '',
         tender_details: '',
-        tender_capacity: '',
-        tender_value: '',
         tender_start_date: '',
         tender_end_date: '',
         file: null,
@@ -155,7 +147,6 @@ const AddTenders: React.FC<AddTendersProps> = ({
         !entry.state_name ||
         !entry.name_of_department ||
         !entry.firm_name ||
-        !entry.tender_value ||
         !entry.tender_start_date ||
         !entry.tender_end_date
       ) {
@@ -218,8 +209,6 @@ const AddTenders: React.FC<AddTendersProps> = ({
               name_of_department: entry.name_of_department,
               firm_name: entry.firm_name,
               tender_details: entry.tender_details || null,
-              tender_capacity: entry.tender_capacity || null,
-              tender_value: entry.tender_value ? Number(entry.tender_value) : 0,
               tender_start_date: entry.tender_start_date,
               tender_end_date: entry.tender_end_date,
               nit_file_upload: fileUrl,
@@ -390,34 +379,6 @@ const AddTenders: React.FC<AddTendersProps> = ({
                     />
                   </div>
 
-                  {/* Tender Capacity */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Tender Capacity
-                    </label>
-                    <input
-                      type="text"
-                      value={entry.tender_capacity}
-                      onChange={(e) => handleChange(entry.id, 'tender_capacity', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="e.g. 50 km / day"
-                    />
-                  </div>
-
-                  {/* Tender Value */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">
-                      Tender Value *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={entry.tender_value}
-                      onChange={(e) => handleChange(entry.id, 'tender_value', e.target.value)}
-                      className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="e.g. 1500000"
-                    />
-                  </div>
 
                   {/* Tender Start Date */}
                   <div>

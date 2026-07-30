@@ -30,8 +30,6 @@ export interface Tender {
   name_of_department: string;
   firm_name: string;
   tender_details: string;
-  tender_capacity: string;
-  tender_value: number;
   tender_start_date: string;
   tender_end_date: string;
   nit_file_upload?: string;
@@ -153,14 +151,6 @@ const Tenders = () => {
     return new Date(date).toLocaleDateString('en-IN');
   };
 
-  const formatAmount = (amount: number) => {
-    if (!amount) return '₹0';
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   const firms = [
     ...new Set(
@@ -275,8 +265,6 @@ const Tenders = () => {
                   <th className="px-6 py-4">DEPARTMENT</th>
                   <th className="px-6 py-4">FIRM NAME</th>
                   <th className="px-6 py-4">DETAILS</th>
-                  <th className="px-6 py-4">CAPACITY</th>
-                  <th className="px-6 py-4 text-right">VALUE</th>
                   <th className="px-6 py-4">START DATE</th>
                   <th className="px-6 py-4">END DATE</th>
                 </tr>
@@ -349,12 +337,6 @@ const Tenders = () => {
                     <td className="px-6 py-4 text-gray-500 italic max-w-[200px] truncate" title={item.tender_details}>
                       {item.tender_details || '-'}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
-                      {item.tender_capacity || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap">
-                      {formatAmount(item.tender_value)}
-                    </td>
                     <td className="px-6 py-4 text-gray-500 text-xs whitespace-nowrap">
                       {formatDate(item.tender_start_date)}
                     </td>
@@ -366,7 +348,7 @@ const Tenders = () => {
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={14} className="text-center py-12 text-gray-500">
+                    <td colSpan={12} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <Briefcase size={48} className="text-gray-300" />
                         <p>No Tender Records Found</p>

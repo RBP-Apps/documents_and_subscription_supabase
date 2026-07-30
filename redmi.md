@@ -250,8 +250,6 @@ create table public.tenders (
   name_of_department text,
   firm_name text,
   tender_details text,
-  tender_capacity text,
-  tender_value numeric,
   tender_start_date date,
   tender_end_date date,
   nit_file_upload text,

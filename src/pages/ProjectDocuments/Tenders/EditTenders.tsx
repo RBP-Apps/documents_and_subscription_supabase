@@ -29,8 +29,6 @@ const EditTenders: React.FC<EditTendersProps> = ({
     name_of_department: '',
     firm_name: '',
     tender_details: '',
-    tender_capacity: '',
-    tender_value: '',
     tender_start_date: '',
     tender_end_date: '',
   });
@@ -49,8 +47,6 @@ const EditTenders: React.FC<EditTendersProps> = ({
         name_of_department: tenderData.name_of_department || '',
         firm_name: tenderData.firm_name || '',
         tender_details: tenderData.tender_details || '',
-        tender_capacity: tenderData.tender_capacity || '',
-        tender_value: tenderData.tender_value?.toString() || '',
         tender_start_date: tenderData.tender_start_date || '',
         tender_end_date: tenderData.tender_end_date || '',
       });
@@ -83,8 +79,6 @@ const EditTenders: React.FC<EditTendersProps> = ({
       name_of_department: '',
       firm_name: '',
       tender_details: '',
-      tender_capacity: '',
-      tender_value: '',
       tender_start_date: '',
       tender_end_date: '',
     });
@@ -101,7 +95,6 @@ const EditTenders: React.FC<EditTendersProps> = ({
       !formData.state_name ||
       !formData.name_of_department ||
       !formData.firm_name ||
-      !formData.tender_value ||
       !formData.tender_start_date ||
       !formData.tender_end_date
     ) {
@@ -143,8 +136,6 @@ const EditTenders: React.FC<EditTendersProps> = ({
           name_of_department: formData.name_of_department,
           firm_name: formData.firm_name,
           tender_details: formData.tender_details || null,
-          tender_capacity: formData.tender_capacity || null,
-          tender_value: formData.tender_value ? Number(formData.tender_value) : 0,
           tender_start_date: formData.tender_start_date,
           tender_end_date: formData.tender_end_date,
           nit_file_upload: fileUrl,
@@ -303,42 +294,6 @@ const EditTenders: React.FC<EditTendersProps> = ({
                   />
                 </div>
 
-                {/* Tender Capacity */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">
-                    Tender Capacity
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.tender_capacity}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        tender_capacity: e.target.value,
-                      })
-                    }
-                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                  />
-                </div>
-
-                {/* Tender Value */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">
-                    Tender Value *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={formData.tender_value}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        tender_value: e.target.value,
-                      })
-                    }
-                    className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                  />
-                </div>
 
                 {/* Tender Start Date */}
                 <div>
