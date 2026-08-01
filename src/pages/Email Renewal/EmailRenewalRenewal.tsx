@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import useHeaderStore from '../../store/headerStore';
-import { Search, FileText, X, Calendar, Upload, RotateCcw, ShieldAlert, BadgeAlert } from 'lucide-react';
+import { Search, FileText, X, Calendar, Upload, RotateCcw, ShieldAlert, BadgeAlert, MessageCircle, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import supabase from '../../utils/supabase';
 
@@ -45,6 +45,21 @@ interface RenewalLog {
   created_at: string;
 }
 
+interface ReminderLogItem {
+  id: number;
+  renewal_id: string;
+  document_name: string | null;
+  concern_person: string | null;
+  mobile_number: string;
+  renewal_date: string;
+  reminder_days: number;
+  message_status: 'Success' | 'Failed' | 'Pending';
+  whatsapp_message_id: string | null;
+  error_message: string | null;
+  sent_at: string | null;
+  created_at: string;
+}
+
 const EmailRenewalRenewal = () => {
   const { setTitle } = useHeaderStore();
 
@@ -52,10 +67,11 @@ const EmailRenewalRenewal = () => {
     setTitle('Email / Expense Renewal');
   }, [setTitle]);
 
-  const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'history' | 'reminders'>('pending');
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingData, setPendingData] = useState<EmailDetail[]>([]);
   const [historyData, setHistoryData] = useState<RenewalLog[]>([]);
+  const [reminderLogs, setReminderLogs] = useState<ReminderLogItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal State
@@ -93,6 +109,13 @@ const EmailRenewalRenewal = () => {
 
       if (historyErr) throw historyErr;
       setHistoryData(history || []);
+
+      // Fetch notification history logs
+      const { data: logsData } = await supabase
+        .from('renewal_notification_history')
+        .select('*')
+        .order('created_at', { ascending: false });
+      setReminderLogs(logsData || []);
     } catch (err) {
       console.error('Error loading email renewals:', err);
       toast.error('Failed to load renewals data');
@@ -133,6 +156,14 @@ const EmailRenewalRenewal = () => {
   const historyFiltered = historyData.filter((item) =>
     item.serial_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.sub_serial_no ? item.sub_serial_no.toString() : '').includes(searchTerm)
+  );
+
+  const filteredReminderLogs = reminderLogs.filter(
+    (log) =>
+      (log.document_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (log.concern_person || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (log.mobile_number || '').includes(searchTerm) ||
+      (log.renewal_id || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleOpenRenewal = (item: EmailDetail) => {
@@ -272,10 +303,10 @@ const EmailRenewalRenewal = () => {
           </button>
 
           {/* Tabs */}
-          <div className="flex bg-gray-100 p-1 rounded-lg w-full sm:w-auto">
+          <div className="flex bg-gray-100 p-1 rounded-lg w-full sm:w-auto overflow-x-auto">
             <button
               onClick={() => setActiveTab('pending')}
-              className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all ${
+              className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
                 activeTab === 'pending'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
@@ -285,13 +316,24 @@ const EmailRenewalRenewal = () => {
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all ${
+              className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
                 activeTab === 'history'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               History ({historyData.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('reminders')}
+              className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'reminders'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <MessageCircle size={15} />
+              WhatsApp Reminders ({filteredReminderLogs.length})
             </button>
           </div>
         </div>
@@ -305,7 +347,7 @@ const EmailRenewalRenewal = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            {activeTab === 'pending' ? (
+            {activeTab === 'pending' && (
               <table className="w-full text-left border-collapse">
                 <thead className="bg-gray-50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
                   <tr>
@@ -381,7 +423,9 @@ const EmailRenewalRenewal = () => {
                   )}
                 </tbody>
               </table>
-            ) : (
+            )}
+
+            {activeTab === 'history' && (
               <table className="w-full text-left border-collapse">
                 <thead className="bg-gray-50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
                   <tr>
@@ -452,6 +496,79 @@ const EmailRenewalRenewal = () => {
                       <td colSpan={8} className="text-center py-16 text-gray-400">
                         <BadgeAlert className="mx-auto h-12 w-12 text-gray-300 mb-2" />
                         No renewal history logs found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+
+            {activeTab === 'reminders' && (
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-gray-50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
+                  <tr>
+                    <th className="p-4 text-center">Status</th>
+                    <th className="p-4">Document / Policy</th>
+                    <th className="p-4">Concern Person</th>
+                    <th className="p-4">Mobile Number</th>
+                    <th className="p-4">Renewal Date</th>
+                    <th className="p-4">Reminder Stage</th>
+                    <th className="p-4">Sent Time</th>
+                    <th className="p-4">WhatsApp Message ID / Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-sm">
+                  {filteredReminderLogs.length > 0 ? (
+                    filteredReminderLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-gray-50/80 transition-colors">
+                        <td className="p-4 text-center">
+                          {log.message_status === 'Success' ? (
+                            <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold border border-green-200">
+                              <CheckCircle2 size={13} /> Success
+                            </span>
+                          ) : log.message_status === 'Failed' ? (
+                            <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 px-2.5 py-1 rounded-full text-xs font-bold border border-red-200">
+                              <XCircle size={13} /> Failed
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full text-xs font-bold border border-amber-200">
+                              <AlertCircle size={13} /> Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4 font-semibold text-gray-900">{log.document_name || log.renewal_id}</td>
+                        <td className="p-4 text-gray-700 font-medium">{log.concern_person || '-'}</td>
+                        <td className="p-4 font-mono text-xs text-indigo-600 font-semibold">{log.mobile_number}</td>
+                        <td className="p-4 font-mono text-xs text-gray-600">{formatDate(log.renewal_date)}</td>
+                        <td className="p-4">
+                          <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium border border-blue-100">
+                            {log.reminder_days || 15} Days Before
+                          </span>
+                        </td>
+                        <td className="p-4 text-xs text-gray-500 font-mono">
+                          {formatDate(log.sent_at || log.created_at)}
+                        </td>
+                        <td className="p-4 text-xs">
+                          {log.whatsapp_message_id ? (
+                            <span className="font-mono text-[11px] text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">
+                              ID: {log.whatsapp_message_id}
+                            </span>
+                          ) : log.error_message ? (
+                            <span className="text-red-600 font-medium bg-red-50 px-2 py-1 rounded border border-red-100">
+                              {log.error_message}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8} className="p-12 text-center text-gray-500">
+                        <MessageCircle size={36} className="mx-auto mb-2 text-gray-300" />
+                        <p className="font-semibold text-gray-700">No WhatsApp reminder logs found</p>
+                        <p className="text-xs text-gray-400 mt-1">Automatic reminders sent 15 days before renewal date will appear here.</p>
                       </td>
                     </tr>
                   )}
