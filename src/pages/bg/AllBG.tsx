@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Building, FileText } from 'lucide-react';
-import useDataStore from '../../store/dataStore';
+import { Plus, Search, Building, FileText, Edit, Trash2 } from 'lucide-react';
+import useDataStore, { BGItem } from '../../store/dataStore';
 import useHeaderStore from '../../store/headerStore';
 import supabase from '../../utils/supabase';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
 import AddBG from './AddBG';
+import EditBG from './EditBG';
 
 const AllBG = () => {
     const { setTitle } = useHeaderStore();
@@ -170,6 +171,30 @@ const AllBG = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterBank, setFilterBank] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedBg, setSelectedBg] = useState<BGItem | null>(null);
+
+    const handleEditBG = (item: BGItem) => {
+        setSelectedBg(item);
+        setIsEditModalOpen(true);
+    };
+
+    const handleDeleteBG = async (id: string, sn: string) => {
+        if (!window.confirm(`Are you sure you want to delete Bank Guarantee (${sn || 'selected'})?`)) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase.from('BG').delete().eq('id', id);
+            if (error) throw error;
+
+            toast.success(`BG (${sn || id}) deleted successfully`);
+            loadBGs();
+        } catch (err) {
+            console.error('Error deleting BG:', err);
+            toast.error('Failed to delete BG');
+        }
+    };
 
     const filteredData = bgs.filter(item => {
         const bankName = item.bankName || '';
@@ -255,6 +280,7 @@ const AllBG = () => {
                                     <thead className="sticky top-0 z-20 bg-gray-50">
                                         <tr className="text-xs uppercase text-gray-500 font-bold tracking-wider">
                                             <th className="px-4 py-4 border-b border-gray-100">Serial No.</th>
+                                            <th className="px-4 py-4 border-b border-gray-100 text-center">Action</th>
                                             <th className="px-4 py-4 border-b border-gray-100">BG Name (Company Name)</th>
                                             <th className="px-4 py-4 border-b border-gray-100">BG No</th>
                                             <th className="px-4 py-4 border-b border-gray-100">Bank Name</th>
@@ -271,6 +297,24 @@ const AllBG = () => {
                                         {filteredData.map((item) => (
                                             <tr key={item.id} className="hover:bg-indigo-50/30 transition-colors group/row">
                                                 <td className="px-4 py-4 font-mono text-xs font-semibold text-indigo-600">{item.sn}</td>
+                                                <td className="px-4 py-4 text-center whitespace-nowrap">
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <button
+                                                            onClick={() => handleEditBG(item)}
+                                                            className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                                                            title="Edit BG"
+                                                        >
+                                                            <Edit size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteBG(item.id, item.sn)}
+                                                            className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
+                                                            title="Delete BG"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
                                                 <td className="px-4 py-4 font-semibold text-gray-900">{item.bgName}</td>
                                                 <td className="px-4 py-4 font-mono text-xs text-gray-600">{item.bgNo}</td>
                                                 <td className="px-4 py-4">
@@ -328,6 +372,22 @@ const AllBG = () => {
                                                     <span className="text-xs text-gray-500 font-medium">{item.bgNo}</span>
                                                 </div>
                                             </div>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => handleEditBG(item)}
+                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                                title="Edit BG"
+                                            >
+                                                <Edit size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteBG(item.id, item.sn)}
+                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                                                title="Delete BG"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
                                         </div>
                                     </div>
 
@@ -392,6 +452,15 @@ const AllBG = () => {
                 )}
             </div>
             <AddBG isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+            <EditBG
+                isOpen={isEditModalOpen}
+                onClose={() => {
+                    setIsEditModalOpen(false);
+                    setSelectedBg(null);
+                }}
+                onSuccess={loadBGs}
+                bgData={selectedBg}
+            />
         </>
     );
 };

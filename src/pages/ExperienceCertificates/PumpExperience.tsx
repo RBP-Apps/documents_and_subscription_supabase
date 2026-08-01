@@ -489,6 +489,27 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [masterCompanies, setMasterCompanies] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchMasterCompanies = async () => {
+      try {
+        const { data, error } = await supabase.from('master').select('company_name');
+        if (error) throw error;
+        if (data) {
+          const comps = data
+            .map((item) => item.company_name)
+            .filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+          setMasterCompanies(Array.from(new Set(comps)));
+        }
+      } catch (err) {
+        console.error('Error fetching company names from master:', err);
+      }
+    };
+
+    fetchMasterCompanies();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -511,6 +532,13 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
     let fileUrl = '';
 
     try {
+      if (companyName.trim()) {
+        const exists = masterCompanies.some((c) => c.toLowerCase() === companyName.trim().toLowerCase());
+        if (!exists) {
+          await supabase.from('master').insert([{ company_name: companyName.trim() }]);
+        }
+      }
+
       if (file) {
         const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
         const filePath = `experience_certificates/pump/${Date.now()}_${cleanFileName}`;
@@ -649,12 +677,18 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name</label>
               <input
+                list="add-pump-company-list"
                 type="text"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. RBP Projects"
+                placeholder="Select or enter company name"
               />
+              <datalist id="add-pump-company-list">
+                {masterCompanies.map((company, index) => (
+                  <option key={index} value={company} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Scheme</label>
@@ -765,6 +799,27 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState(certData.file_url ? 'Existing File' : '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [masterCompanies, setMasterCompanies] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchMasterCompanies = async () => {
+      try {
+        const { data, error } = await supabase.from('master').select('company_name');
+        if (error) throw error;
+        if (data) {
+          const comps = data
+            .map((item) => item.company_name)
+            .filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+          setMasterCompanies(Array.from(new Set(comps)));
+        }
+      } catch (err) {
+        console.error('Error fetching company names from master:', err);
+      }
+    };
+
+    fetchMasterCompanies();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -786,6 +841,13 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
     let fileUrl = certData.file_url || '';
 
     try {
+      if (companyName.trim()) {
+        const exists = masterCompanies.some((c) => c.toLowerCase() === companyName.trim().toLowerCase());
+        if (!exists) {
+          await supabase.from('master').insert([{ company_name: companyName.trim() }]);
+        }
+      }
+
       if (file) {
         const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
         const filePath = `experience_certificates/pump/${Date.now()}_${cleanFileName}`;
@@ -914,12 +976,18 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name</label>
               <input
+                list="edit-pump-company-list"
                 type="text"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. RBP Projects"
+                placeholder="Select or enter company name"
               />
+              <datalist id="edit-pump-company-list">
+                {masterCompanies.map((company, index) => (
+                  <option key={index} value={company} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Scheme</label>

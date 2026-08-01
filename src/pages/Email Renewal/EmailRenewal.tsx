@@ -111,7 +111,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   );
 
   return (
-    <div className="relative w-full" ref={dropdownRef}>
+    <div className={`relative w-full ${isOpen ? 'z-50' : 'z-10'}`} ref={dropdownRef}>
       <div className="relative flex items-center">
         <button
           type="button"
@@ -142,7 +142,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
       </div>
 
       {isOpen && (
-        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 flex flex-col overflow-hidden animate-fade-in-down">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 flex flex-col overflow-hidden animate-fade-in-down">
           <div className="p-2 border-b border-gray-100 bg-white flex items-center gap-2">
             <Search size={14} className="text-gray-400 shrink-0" />
             <input
@@ -228,7 +228,7 @@ const EmailRenewal = () => {
 
     const fetchSizes = async () => {
       const bucketSizes: Record<string, number> = {};
-      
+
       // Step 1: List files in email_renewals folder under 'Email Renewal' bucket
       try {
         const { data: files, error } = await supabase.storage
@@ -475,7 +475,7 @@ const EmailRenewal = () => {
     <>
       <div className="space-y-4">
         {/* Header Panel */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 relative z-30">
           <div className="p-4 border-b border-gray-200">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
               <div>
@@ -567,7 +567,7 @@ const EmailRenewal = () => {
 
         {/* Desktop Table View */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-           <div className="overflow-auto max-h-[400px]">
+          <div className="overflow-auto max-h-[400px]">
             <table className="w-full">
               <thead className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                 <tr className="text-xs uppercase text-gray-600 font-semibold tracking-wider">

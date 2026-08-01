@@ -263,7 +263,7 @@ const Tenders = () => {
                   <th className="px-6 py-4">TENDER NAME</th>
                   <th className="px-6 py-4">STATE</th>
                   <th className="px-6 py-4">DEPARTMENT</th>
-                  <th className="px-6 py-4">FIRM NAME</th>
+                  <th className="px-6 py-4">FIRM NAME(Company Name)</th>
                   <th className="px-6 py-4">DETAILS</th>
                   <th className="px-6 py-4">START DATE</th>
                   <th className="px-6 py-4">END DATE</th>

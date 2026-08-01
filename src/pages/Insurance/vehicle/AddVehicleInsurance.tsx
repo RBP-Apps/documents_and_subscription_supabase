@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import {
   X,
@@ -71,6 +71,27 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
   ]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [masterCompanies, setMasterCompanies] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchMasterCompanies = async () => {
+      try {
+        const { data, error } = await supabase.from('master').select('company_name');
+        if (error) throw error;
+        if (data) {
+          const comps = data
+            .map((item) => item.company_name)
+            .filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+          setMasterCompanies(Array.from(new Set(comps)));
+        }
+      } catch (err) {
+        console.error('Error fetching company names from master:', err);
+      }
+    };
+
+    fetchMasterCompanies();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -213,6 +234,18 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
     setIsSubmitting(true);
 
     try {
+      // Save new company names to master table if not existing
+      for (const entry of entries) {
+        if (entry.company_name.trim()) {
+          const exists = masterCompanies.some(
+            (c) => c.toLowerCase() === entry.company_name.trim().toLowerCase()
+          );
+          if (!exists) {
+            await supabase.from('master').insert([{ company_name: entry.company_name.trim() }]);
+          }
+        }
+      }
+
       const uploadResults: Array<{ index: number; fileUrl: string | null; rcUrl: string | null }> = [];
 
       // 1. Upload files first
@@ -403,13 +436,19 @@ const AddVehicleInsurance: React.FC<AddVehicleInsuranceProps> = ({
                       Company Name *
                     </label>
                     <input
+                      list={`add-veh-company-list-${entry.id}`}
                       type="text"
                       required
                       value={entry.company_name}
                       onChange={(e) => handleChange(entry.id, 'company_name', e.target.value)}
                       className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
-                      placeholder="e.g. Star Insurance"
+                      placeholder="Select or enter Company Name"
                     />
+                    <datalist id={`add-veh-company-list-${entry.id}`}>
+                      {masterCompanies.map((company, cIdx) => (
+                        <option key={cIdx} value={company} />
+                      ))}
+                    </datalist>
                   </div>
 
                   {/* Registration No */}

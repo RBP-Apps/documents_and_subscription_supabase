@@ -45,6 +45,27 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
   const [rcFileUpload, setRcFileUpload] = useState<File | null>(null);
   const [rcFileName, setRcFileName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [masterCompanies, setMasterCompanies] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchMasterCompanies = async () => {
+      try {
+        const { data, error } = await supabase.from('master').select('company_name');
+        if (error) throw error;
+        if (data) {
+          const comps = data
+            .map((item) => item.company_name)
+            .filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+          setMasterCompanies(Array.from(new Set(comps)));
+        }
+      } catch (err) {
+        console.error('Error fetching company names from master:', err);
+      }
+    };
+
+    fetchMasterCompanies();
+  }, [isOpen]);
 
   useEffect(() => {
     if (insuranceData && isOpen) {
@@ -136,6 +157,15 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
 
     try {
       setIsSubmitting(true);
+
+      if (formData.company_name.trim()) {
+        const exists = masterCompanies.some(
+          (c) => c.toLowerCase() === formData.company_name.trim().toLowerCase()
+        );
+        if (!exists) {
+          await supabase.from('master').insert([{ company_name: formData.company_name.trim() }]);
+        }
+      }
 
       let fileUrl = insuranceData.file_url || null;
       let rcUrl = insuranceData.rc_url || null;
@@ -268,6 +298,7 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
                     Company Name *
                   </label>
                   <input
+                    list="edit-veh-company-list"
                     type="text"
                     required
                     value={formData.company_name}
@@ -278,7 +309,13 @@ const EditVehicleInsurance: React.FC<EditVehicleInsuranceProps> = ({
                       })
                     }
                     className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-gray-50/30"
+                    placeholder="Select or enter Company Name"
                   />
+                  <datalist id="edit-veh-company-list">
+                    {masterCompanies.map((company, cIdx) => (
+                      <option key={cIdx} value={company} />
+                    ))}
+                  </datalist>
                 </div>
 
                 <div>
