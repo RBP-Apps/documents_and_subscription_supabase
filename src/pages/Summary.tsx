@@ -50,7 +50,7 @@ const safeQuery = async (queryPromise: any) => {
 interface DashboardItem {
   id: string;
   sn: string;
-  module: 'document' | 'subscription' | 'insurance' | 'bg' | 'work_order' | 'tender' | 'test_report' | 'experience';
+  module: 'document' | 'subscription' | 'insurance' | 'bg' | 'work_order' | 'tender' | 'test_report' | 'experience' | 'loan';
   subType: string;
   name: string;
   category: string;
@@ -83,6 +83,7 @@ interface SummaryData {
   totalTenders: number;
   totalTestReports: number;
   totalExperience: number;
+  totalLoans: number;
   activeRecords: number;
   expiredRecords: number;
   expiringSoon: number;
@@ -115,6 +116,7 @@ interface SummaryData {
   tenders: Array<DashboardItem>;
   testReports: Array<DashboardItem>;
   experience: Array<DashboardItem>;
+  loans: Array<DashboardItem>;
   recentActivities: Array<{ id: string; date: string; type: string; message: string }>;
 
   // status matrix details
@@ -138,6 +140,8 @@ interface SummaryData {
   trExpired: number;
   expActive: number;
   expExpired: number;
+  loanActive: number;
+  loanExpired: number;
 }
 
 const MODULE_OPTIONS = [
@@ -196,6 +200,7 @@ const Summary = () => {
   const [rawPannelTR, setRawPannelTR] = useState<any[]>([]);
   const [rawHlsTR, setRawHlsTR] = useState<any[]>([]);
   const [rawExpCerts, setRawExpCerts] = useState<any[]>([]);
+  const [rawLoans, setRawLoans] = useState<any[]>([]);
   const [rawShares, setRawShares] = useState<any[]>([]);
   const [rawDocRenewals, setRawDocRenewals] = useState<any[]>([]);
   const [rawSubRenewals, setRawSubRenewals] = useState<any[]>([]);
@@ -415,13 +420,13 @@ const Summary = () => {
       // 1. Fetch raw data if it is a new company, else reuse cached values to satisfy performance constraints
       let dDocs = rawDocs, dSubs = rawSubs, dVeh = rawVeh, dHealth = rawHealth, dLife = rawLife, dFire = rawFire, dEmp = rawEmp, dBgs = rawBgs;
       let dShares = rawShares, dDocRen = rawDocRenewals, dSubRen = rawSubRenewals, dVehRen = rawVehRenewals, dHealthRen = rawHealthRenewals, dLifeRen = rawLifeRenewals;
-      let dWorkOrders = rawWorkOrders, dTenders = rawTenders, dSpvTR = rawSpvTR, dPvWaterTR = rawPvWaterTR, dPvModTR = rawPvModTR, dPumpTR = rawPumpTR, dPannelTR = rawPannelTR, dHlsTR = rawHlsTR, dExpCerts = rawExpCerts;
+      let dWorkOrders = rawWorkOrders, dTenders = rawTenders, dSpvTR = rawSpvTR, dPvWaterTR = rawPvWaterTR, dPvModTR = rawPvModTR, dPumpTR = rawPumpTR, dPannelTR = rawPannelTR, dHlsTR = rawHlsTR, dExpCerts = rawExpCerts, dLoans = rawLoans;
 
       if (cachedCompany !== selectedCompany) {
         const [
           docsRes, subsRes, vehRes, healthRes, lifeRes, fireRes, empRes, bgRes,
           sharesRes, docRenRes, subRenRes, vehRenRes, healthRenRes, lifeRenRes,
-          woRes, tndRes, spvRes, pvWaterRes, pvModRes, pumpRes, pannelRes, hlsRes, expRes
+          woRes, tndRes, spvRes, pvWaterRes, pvModRes, pumpRes, pannelRes, hlsRes, expRes, loanRes
         ] = await Promise.all([
           safeQuery(supabase.from('Add New Document').select('*').eq('company_name', selectedCompany).eq('is_deleted', false)),
           safeQuery(supabase.from('create_subscription').select('*').eq('company_name', selectedCompany)),
@@ -446,6 +451,7 @@ const Summary = () => {
           safeQuery(supabase.from('pannel_test_reports').select('*').eq('company_name', selectedCompany)),
           safeQuery(supabase.from('hls_test_reports').select('*').eq('company_name', selectedCompany)),
           safeQuery(supabase.from('pump_experience_certificates').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('loan').select('*').eq('company_name', selectedCompany)),
         ]);
 
         dDocs = docsRes.data || [];
@@ -471,6 +477,7 @@ const Summary = () => {
         dPannelTR = pannelRes.data || [];
         dHlsTR = hlsRes.data || [];
         dExpCerts = expRes.data || [];
+        dLoans = loanRes.data || [];
 
         // Update caches
         setRawDocs(dDocs);
@@ -496,6 +503,7 @@ const Summary = () => {
         setRawPannelTR(dPannelTR);
         setRawHlsTR(dHlsTR);
         setRawExpCerts(dExpCerts);
+        setRawLoans(dLoans);
         setCachedCompany(selectedCompany);
       }
 
@@ -871,6 +879,43 @@ const Summary = () => {
         });
       });
 
+      // Add Loans
+      dLoans.forEach(l => {
+        const expField = l.loan_end_date || null;
+        const expDate = expField ? new Date(expField) : null;
+        const isExpired = expDate ? expDate < today : false;
+        const isExpiringSoon = expDate ? (expDate >= today && expDate <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)) : false;
+        const statusVal = isExpired ? 'Expired' : (isExpiringSoon ? 'Expiring Soon' : 'Active');
+
+        let priorityVal: DashboardItem['priority'] = 'Low';
+        if (isExpired) priorityVal = 'Critical';
+        else if (isExpiringSoon) priorityVal = 'High';
+
+        const shares = docShareMap.get(l.serial_no) || 0;
+        let shareStatusVal: DashboardItem['shareStatus'] = 'Not Shared';
+        if (shares > 2) shareStatusVal = 'Most Shared';
+        else if (shares > 0) shareStatusVal = 'Shared';
+
+        allUnifiedItems.push({
+          id: `loan-${l.id}`,
+          sn: l.serial_no || `LN-${l.id}`,
+          module: 'loan',
+          subType: 'Loan',
+          name: l.loan_name || l.bank_name || 'Loan',
+          category: l.bank_name || 'Loan',
+          status: statusVal,
+          expiryDate: expField,
+          premium: l.amount ? Number(l.amount) : 0,
+          shareCount: shares,
+          renewalCount: 0,
+          priority: priorityVal,
+          renewalStatus: 'No Renewal Required',
+          shareStatus: shareStatusVal,
+          created_at: l.created_at || l.timestamp || l.loan_start_date || '',
+          need_renewal: isExpired || isExpiringSoon
+        });
+      });
+
       // Apply the 10 MIS filters dynamically on the unified dataset
       let filteredItems = allUnifiedItems;
 
@@ -897,6 +942,8 @@ const Summary = () => {
           filteredItems = filteredItems.filter(item => item.module === 'test_report');
         } else if (moduleFilter === 'experience') {
           filteredItems = filteredItems.filter(item => item.module === 'experience');
+        } else if (moduleFilter === 'loan') {
+          filteredItems = filteredItems.filter(item => item.module === 'loan');
         } else if (moduleFilter === 'vehicleinsurance') {
           filteredItems = filteredItems.filter(item => item.subType === 'Vehicle Insurance');
         } else if (moduleFilter === 'healthinsurance') {
@@ -1032,6 +1079,7 @@ const Summary = () => {
       const totalTenders = filteredItems.filter(i => i.module === 'tender').length;
       const totalTestReports = filteredItems.filter(i => i.module === 'test_report').length;
       const totalExperience = filteredItems.filter(i => i.module === 'experience').length;
+      const totalLoans = filteredItems.filter(i => i.module === 'loan').length;
       
       const activeRecords = filteredItems.filter(i => i.status === 'Active').length;
       const expiredRecords = filteredItems.filter(i => i.status === 'Expired').length;
@@ -1070,10 +1118,13 @@ const Summary = () => {
       const expActive = filteredItems.filter(i => i.module === 'experience' && i.status === 'Active').length;
       const expExpired = filteredItems.filter(i => i.module === 'experience' && i.status === 'Expired').length;
 
+      const loanActive = filteredItems.filter(i => i.module === 'loan' && i.status === 'Active').length;
+      const loanExpired = filteredItems.filter(i => i.module === 'loan' && i.status === 'Expired').length;
+
       // Executive Insights
       // Highest Risk Category: Which module has the most expired items?
       let highestRiskCategory = 'None';
-      const maxExpired = Math.max(docsExpired, subsExpired, insExpired, bgsExpired, woExpired, tndExpired, trExpired, expExpired);
+      const maxExpired = Math.max(docsExpired, subsExpired, insExpired, bgsExpired, woExpired, tndExpired, trExpired, expExpired, loanExpired);
       if (maxExpired > 0) {
         if (maxExpired === docsExpired) highestRiskCategory = 'Documents';
         else if (maxExpired === subsExpired) highestRiskCategory = 'Subscriptions';
@@ -1082,7 +1133,8 @@ const Summary = () => {
         else if (maxExpired === woExpired) highestRiskCategory = 'Work Orders';
         else if (maxExpired === tndExpired) highestRiskCategory = 'Tenders';
         else if (maxExpired === trExpired) highestRiskCategory = 'Test Reports';
-        else highestRiskCategory = 'Experience Certificates';
+        else if (maxExpired === expExpired) highestRiskCategory = 'Experience Certificates';
+        else highestRiskCategory = 'Loans';
       }
 
       // Most Shared Document
@@ -1222,6 +1274,7 @@ const Summary = () => {
         totalTenders,
         totalTestReports,
         totalExperience,
+        totalLoans,
         activeRecords,
         expiredRecords,
         expiringSoon,
@@ -1251,6 +1304,7 @@ const Summary = () => {
         tenders: filteredItems.filter(i => i.module === 'tender'),
         testReports: filteredItems.filter(i => i.module === 'test_report'),
         experience: filteredItems.filter(i => i.module === 'experience'),
+        loans: filteredItems.filter(i => i.module === 'loan'),
         recentActivities: activities.slice(0, 8),
 
         // status matrix details
@@ -1273,7 +1327,9 @@ const Summary = () => {
         trActive,
         trExpired,
         expActive,
-        expExpired
+        expExpired,
+        loanActive,
+        loanExpired
       };
 
       setReportData(finalReport);
@@ -1314,6 +1370,7 @@ const Summary = () => {
       ["Total Tenders", reportData.totalTenders || 0],
       ["Total Test Reports", reportData.totalTestReports || 0],
       ["Total Experience Certificates", reportData.totalExperience || 0],
+      ["Total Loans", reportData.totalLoans || 0],
       ["Active Records", reportData.activeRecords],
       ["Expired Records", reportData.expiredRecords],
       ["Expiring Soon", reportData.expiringSoon],
@@ -1445,8 +1502,22 @@ const Summary = () => {
     const wsExp = XLSX.utils.aoa_to_sheet([...expHeaders, ...expRows]);
     XLSX.utils.book_append_sheet(wb, wsExp, "Experience Certificates");
 
+    // 10. Loans Sheet Data
+    const loanHeaders = [["Serial No", "Loan Name", "Bank Name", "Status", "Amount", "End Date", "Created At"]];
+    const loanRows = (reportData.loans || []).map(l => [
+      l.sn,
+      l.name,
+      l.category,
+      l.status,
+      l.premium,
+      l.expiryDate ? formatDate(l.expiryDate) : "-",
+      l.created_at ? new Date(l.created_at).toLocaleDateString('en-IN') : "-"
+    ]);
+    const wsLoan = XLSX.utils.aoa_to_sheet([...loanHeaders, ...loanRows]);
+    XLSX.utils.book_append_sheet(wb, wsLoan, "Loans");
+
     // Auto-adjust column widths
-    const sheets = [wsSummary, wsDocs, wsSubs, wsIns, wsBgs, wsWo, wsTnd, wsTr, wsExp];
+    const sheets = [wsSummary, wsDocs, wsSubs, wsIns, wsBgs, wsWo, wsTnd, wsTr, wsExp, wsLoan];
     sheets.forEach(ws => {
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
       const colWidths = [];
@@ -2069,6 +2140,15 @@ const Summary = () => {
               <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Award size={18} /></div>
             </div>
 
+            {/* 4.95 Total Loans */}
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Loans</span>
+                <span className="text-xl font-black text-gray-800 block mt-1">{reportData.totalLoans || 0}</span>
+              </div>
+              <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Building size={18} /></div>
+            </div>
+
             {/* 5. Active Records */}
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
               <div>
@@ -2377,6 +2457,12 @@ const Summary = () => {
                           <td className="p-2 text-center text-green-600 font-bold">{reportData.expActive || 0}</td>
                           <td className="p-2 text-center text-red-600 font-bold">{reportData.expExpired || 0}</td>
                         </tr>
+                        <tr>
+                          <td className="p-2 font-semibold text-gray-700">Loans</td>
+                          <td className="p-2 text-center font-bold">{reportData.totalLoans || 0}</td>
+                          <td className="p-2 text-center text-green-600 font-bold">{reportData.loanActive || 0}</td>
+                          <td className="p-2 text-center text-red-600 font-bold">{reportData.loanExpired || 0}</td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -2390,7 +2476,7 @@ const Summary = () => {
                 {/* Footer Metadata */}
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 1 of 6</span>
+                  <span>Page 1 of 7</span>
                 </div>
               </div>
 
@@ -2497,7 +2583,7 @@ const Summary = () => {
 
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 2 of 6</span>
+                  <span>Page 2 of 7</span>
                 </div>
               </div>
 
@@ -2579,7 +2665,7 @@ const Summary = () => {
 
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 3 of 6</span>
+                  <span>Page 3 of 7</span>
                 </div>
               </div>
 
@@ -2659,7 +2745,7 @@ const Summary = () => {
 
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 4 of 6</span>
+                  <span>Page 4 of 7</span>
                 </div>
               </div>
 
@@ -2762,7 +2848,7 @@ const Summary = () => {
 
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 5 of 6</span>
+                  <span>Page 5 of 7</span>
                 </div>
               </div>
 
@@ -2859,7 +2945,68 @@ const Summary = () => {
 
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 6 of 6</span>
+                  <span>Page 6 of 7</span>
+                </div>
+              </div>
+
+              {/* PAGE 7: LOANS SUMMARY */}
+              <div className="pdf-page bg-white shadow-xl p-10 mx-auto relative border border-gray-200/50 block" style={{ width: '210mm', minHeight: '296mm', height: 'auto', boxSizing: 'border-box' }}>
+                <div className="space-y-4 pb-4">
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600">{reportData.companyName} - Loans</h2>
+                    <span className="text-[10px] text-gray-400 font-mono">Generated: {reportData.generatedAt}</span>
+                  </div>
+
+                  {/* Loans Section */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700">Loans Summary Table</h3>
+                      <span className="text-[9px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-bold">
+                        Total Loans: {reportData.totalLoans || 0}
+                      </span>
+                    </div>
+                    {reportData.loans && reportData.loans.length > 0 ? (
+                      <table className="w-full text-left border-collapse text-[10px]">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase">
+                            <th className="p-2">Serial</th>
+                            <th className="p-2">Loan Name</th>
+                            <th className="p-2">Bank Name</th>
+                            <th className="p-2 text-center">Status</th>
+                            <th className="p-2 text-right">Amount</th>
+                            <th className="p-2 text-center">End Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {reportData.loans.map((ln, idx) => (
+                            <tr key={idx}>
+                              <td className="p-2 font-mono font-bold text-indigo-600">{ln.sn}</td>
+                              <td className="p-2 font-medium text-gray-900 truncate max-w-[180px]">{ln.name}</td>
+                              <td className="p-2 text-gray-500">{ln.category}</td>
+                              <td className="p-2 text-center">
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                  ln.status === 'Expired' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                }`}>
+                                  {ln.status}
+                                </span>
+                              </td>
+                              <td className="p-2 text-right font-medium">{ln.premium ? `₹${ln.premium.toLocaleString('en-IN')}` : '-'}</td>
+                              <td className="p-2 text-center font-medium">{ln.expiryDate ? formatDate(ln.expiryDate) : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="p-6 bg-gray-50 border border-dashed text-center text-xs text-gray-400 rounded-xl">
+                        No Loan Records Available
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
+                  <span>DS Dashboard MIS Reports Console</span>
+                  <span>Page 7 of 7</span>
                 </div>
               </div>
 
