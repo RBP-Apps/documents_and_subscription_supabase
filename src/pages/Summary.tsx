@@ -24,7 +24,10 @@ import {
   ArrowUpDown, 
   Check, 
   SlidersHorizontal,
-  FolderOpen
+  FolderOpen,
+  Briefcase,
+  FileCheck,
+  Award
 } from 'lucide-react';
 import supabase from '../utils/supabase';
 import useHeaderStore from '../store/headerStore';
@@ -32,11 +35,22 @@ import { formatDate } from '../utils/dateFormatter';
 import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
+// Helper to safely execute Supabase queries and avoid breaking on missing tables (404)
+const safeQuery = async (queryPromise: any) => {
+  try {
+    const res = await queryPromise;
+    if (res.error) return { data: [] };
+    return res;
+  } catch (e) {
+    return { data: [] };
+  }
+};
+
 // Interfaces
 interface DashboardItem {
   id: string;
   sn: string;
-  module: 'document' | 'subscription' | 'insurance' | 'bg';
+  module: 'document' | 'subscription' | 'insurance' | 'bg' | 'work_order' | 'tender' | 'test_report' | 'experience';
   subType: string;
   name: string;
   category: string;
@@ -65,6 +79,10 @@ interface SummaryData {
   totalSubs: number;
   totalInsurance: number;
   totalBgs: number;
+  totalWorkOrders: number;
+  totalTenders: number;
+  totalTestReports: number;
+  totalExperience: number;
   activeRecords: number;
   expiredRecords: number;
   expiringSoon: number;
@@ -93,6 +111,10 @@ interface SummaryData {
   subscriptions: Array<DashboardItem>;
   insurance: Array<DashboardItem>;
   bgs: Array<DashboardItem>;
+  workOrders: Array<DashboardItem>;
+  tenders: Array<DashboardItem>;
+  testReports: Array<DashboardItem>;
+  experience: Array<DashboardItem>;
   recentActivities: Array<{ id: string; date: string; type: string; message: string }>;
 
   // status matrix details
@@ -108,12 +130,52 @@ interface SummaryData {
   bgsActive: number;
   bgsExpired: number;
   bgsPendingRenewal: number;
+  woActive: number;
+  woExpired: number;
+  tndActive: number;
+  tndExpired: number;
+  trActive: number;
+  trExpired: number;
+  expActive: number;
+  expExpired: number;
 }
+
+const MODULE_OPTIONS = [
+  { value: 'all', label: 'All Modules / All Pages' },
+  { value: 'documents', label: 'Documents' },
+  { value: 'subscriptions', label: 'Subscriptions' },
+  { value: 'bg', label: 'Bank Guarantees (BG)' },
+  { value: 'propertytax', label: 'Property Tax' },
+  { value: 'emailrenewal', label: 'Email Renewal' },
+  { value: 'insurance', label: 'Insurance (All Categories)' },
+  { value: 'vehicleinsurance', label: 'Vehicle Insurance' },
+  { value: 'healthinsurance', label: 'Health Insurance' },
+  { value: 'lifeinsurance', label: 'Life Insurance' },
+  { value: 'building', label: 'Building Insurance' },
+  { value: 'workman', label: "Employee's Compensation" },
+  { value: 'companystaff', label: 'Company Staff Insurance' },
+  { value: 'construction', label: 'Construction Insurance' },
+  { value: 'akashdeepcomplex', label: 'Akashdeep Complex Insurance' },
+  { value: 'firepolicy', label: 'Fire Policy Insurance' },
+  { value: 'work_orders', label: 'Work Orders' },
+  { value: 'tenders', label: 'Tenders' },
+  { value: 'test_reports', label: 'Test Reports (All Categories)' },
+  { value: 'hls', label: 'HLS Test Report' },
+  { value: 'pump', label: 'Pump Test Report' },
+  { value: 'pannel', label: 'Panel Test Report' },
+  { value: 'pv_module', label: 'PV Module Test Report' },
+  { value: 'pv_water_pumping', label: 'PV Water Pumping Test Report' },
+  { value: 'solar_photovoltaic', label: 'Solar Photovoltaic Test Report' },
+  { value: 'experience', label: 'Experience Certificates (All)' },
+  { value: 'pump_exp', label: 'Pump Experience Certificate' },
+  { value: 'loan', label: 'Loans' },
+];
 
 const Summary = () => {
   const { setTitle } = useHeaderStore();
   const reportRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const moduleDropdownRef = useRef<HTMLDivElement>(null);
 
   // Raw fetched lists (cached per company to avoid duplicate API requests)
   const [cachedCompany, setCachedCompany] = useState('');
@@ -125,6 +187,15 @@ const Summary = () => {
   const [rawFire, setRawFire] = useState<any[]>([]);
   const [rawEmp, setRawEmp] = useState<any[]>([]);
   const [rawBgs, setRawBgs] = useState<any[]>([]);
+  const [rawWorkOrders, setRawWorkOrders] = useState<any[]>([]);
+  const [rawTenders, setRawTenders] = useState<any[]>([]);
+  const [rawSpvTR, setRawSpvTR] = useState<any[]>([]);
+  const [rawPvWaterTR, setRawPvWaterTR] = useState<any[]>([]);
+  const [rawPvModTR, setRawPvModTR] = useState<any[]>([]);
+  const [rawPumpTR, setRawPumpTR] = useState<any[]>([]);
+  const [rawPannelTR, setRawPannelTR] = useState<any[]>([]);
+  const [rawHlsTR, setRawHlsTR] = useState<any[]>([]);
+  const [rawExpCerts, setRawExpCerts] = useState<any[]>([]);
   const [rawShares, setRawShares] = useState<any[]>([]);
   const [rawDocRenewals, setRawDocRenewals] = useState<any[]>([]);
   const [rawSubRenewals, setRawSubRenewals] = useState<any[]>([]);
@@ -134,15 +205,19 @@ const Summary = () => {
 
   // 10 Filter States
   const [companies, setCompanies] = useState<string[]>([]);
+  const [moduleCompaniesMap, setModuleCompaniesMap] = useState<Record<string, string[]>>({});
   const [selectedCompany, setSelectedCompany] = useState('');
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState('');
+
+  const [moduleFilter, setModuleFilter] = useState('all');
+  const [isModuleDropdownOpen, setIsModuleDropdownOpen] = useState(false);
+  const [moduleSearchQuery, setModuleSearchQuery] = useState('');
 
   const [dateRange, setDateRange] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  const [moduleFilter, setModuleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [renewalFilter, setRenewalFilter] = useState('all');
@@ -157,6 +232,10 @@ const Summary = () => {
   const [reportData, setReportData] = useState<SummaryData | null>(null);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
 
+  const filteredModuleOptions = MODULE_OPTIONS.filter((opt) =>
+    opt.label.toLowerCase().includes(moduleSearchQuery.toLowerCase())
+  );
+
   useEffect(() => {
     setTitle('Executive MIS Summary');
     loadCompanyList();
@@ -167,6 +246,9 @@ const Summary = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsCompanyDropdownOpen(false);
       }
+      if (moduleDropdownRef.current && !moduleDropdownRef.current.contains(event.target as Node)) {
+        setIsModuleDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -176,37 +258,108 @@ const Summary = () => {
   const loadCompanyList = async () => {
     try {
       setIsLoading(true);
-      const [docsRes, subsRes, vehRes, healthRes, lifeRes, fireRes, empRes, bgRes] = await Promise.all([
-        supabase.from('Add New Document').select('company_name').eq('is_deleted', false),
-        supabase.from('create_subscription').select('company_name'),
-        supabase.from('vehicle_insurance').select('company_name'),
-        supabase.from('health_insurance').select('company_name'),
-        supabase.from('life_insurance').select('company_name'),
-        supabase.from('fire_policy').select('company_name'),
-        supabase.from('employee_compensation').select('company_name'),
-        supabase.from('BG').select('bg_name'),
+      const [
+        docsRes, subsRes, vehRes, healthRes, lifeRes, fireRes, empRes, bgRes,
+        woRes, tndRes, spvRes, pvWaterRes, pvModRes, pumpRes, pannelRes, hlsRes, expRes, loanRes, masterRes
+      ] = await Promise.all([
+        safeQuery(supabase.from('Add New Document').select('company_name').eq('is_deleted', false)),
+        safeQuery(supabase.from('create_subscription').select('company_name')),
+        safeQuery(supabase.from('vehicle_insurance').select('company_name')),
+        safeQuery(supabase.from('health_insurance').select('company_name')),
+        safeQuery(supabase.from('life_insurance').select('company_name')),
+        safeQuery(supabase.from('fire_policy').select('company_name')),
+        safeQuery(supabase.from('employee_compensation').select('company_name')),
+        safeQuery(supabase.from('BG').select('bg_name')),
+        safeQuery(supabase.from('work_orders').select('company_name')),
+        safeQuery(supabase.from('tenders').select('firm_name')),
+        safeQuery(supabase.from('solar_photovoltaic_test_reports').select('company_name')),
+        safeQuery(supabase.from('pv_water_pumping_test_reports').select('company_name')),
+        safeQuery(supabase.from('pv_module_test_reports').select('company_name')),
+        safeQuery(supabase.from('pump_test_reports').select('company_name')),
+        safeQuery(supabase.from('pannel_test_reports').select('company_name')),
+        safeQuery(supabase.from('hls_test_reports').select('company_name')),
+        safeQuery(supabase.from('pump_experience_certificates').select('company_name')),
+        safeQuery(supabase.from('loan').select('company_name')),
+        safeQuery(supabase.from('master').select('company_name')),
       ]);
 
-      const companySet = new Set<string>();
-      const addNames = (data: any[] | null, key: string) => {
-        if (!data) return;
+      const extractNames = (data: any[] | null, key: string = 'company_name'): Set<string> => {
+        const set = new Set<string>();
+        if (!data) return set;
         data.forEach(item => {
-          if (item[key] && item[key].trim()) {
-            companySet.add(item[key].trim());
+          if (item[key] && typeof item[key] === 'string' && item[key].trim()) {
+            set.add(item[key].trim());
           }
         });
+        return set;
       };
 
-      addNames(docsRes.data, 'company_name');
-      addNames(subsRes.data, 'company_name');
-      addNames(vehRes.data, 'company_name');
-      addNames(healthRes.data, 'company_name');
-      addNames(lifeRes.data, 'company_name');
-      addNames(fireRes.data, 'company_name');
-      addNames(empRes.data, 'company_name');
-      addNames(bgRes.data, 'bg_name');
+      const docsCompanies = extractNames(docsRes.data, 'company_name');
+      const subsCompanies = extractNames(subsRes.data, 'company_name');
+      const vehCompanies = extractNames(vehRes.data, 'company_name');
+      const healthCompanies = extractNames(healthRes.data, 'company_name');
+      const lifeCompanies = extractNames(lifeRes.data, 'company_name');
+      const fireCompanies = extractNames(fireRes.data, 'company_name');
+      const empCompanies = extractNames(empRes.data, 'company_name');
+      const bgCompanies = extractNames(bgRes.data, 'bg_name');
+      const woCompanies = extractNames(woRes.data, 'company_name');
+      const tndCompanies = extractNames(tndRes.data, 'firm_name');
+      const spvCompanies = extractNames(spvRes.data, 'company_name');
+      const pvWaterCompanies = extractNames(pvWaterRes.data, 'company_name');
+      const pvModCompanies = extractNames(pvModRes.data, 'company_name');
+      const pumpCompanies = extractNames(pumpRes.data, 'company_name');
+      const pannelCompanies = extractNames(pannelRes.data, 'company_name');
+      const hlsCompanies = extractNames(hlsRes.data, 'company_name');
+      const expCompanies = extractNames(expRes.data, 'company_name');
+      const loanCompanies = extractNames(loanRes.data, 'company_name');
+      const masterCompanies = extractNames(masterRes.data, 'company_name');
 
-      setCompanies(Array.from(companySet).sort());
+      const allSet = new Set<string>([
+        ...docsCompanies, ...subsCompanies, ...vehCompanies, ...healthCompanies, ...lifeCompanies,
+        ...fireCompanies, ...empCompanies, ...bgCompanies, ...woCompanies, ...tndCompanies,
+        ...spvCompanies, ...pvWaterCompanies, ...pvModCompanies, ...pumpCompanies, ...pannelCompanies,
+        ...hlsCompanies, ...expCompanies, ...loanCompanies, ...masterCompanies
+      ]);
+
+      const insSet = new Set<string>([
+        ...vehCompanies, ...healthCompanies, ...lifeCompanies, ...fireCompanies, ...empCompanies
+      ]);
+
+      const trSet = new Set<string>([
+        ...spvCompanies, ...pvWaterCompanies, ...pvModCompanies, ...pumpCompanies, ...pannelCompanies, ...hlsCompanies
+      ]);
+
+      const map: Record<string, string[]> = {
+        all: Array.from(allSet).sort(),
+        documents: Array.from(docsCompanies).sort(),
+        subscriptions: Array.from(subsCompanies).sort(),
+        bg: Array.from(bgCompanies).sort(),
+        insurance: Array.from(insSet).sort(),
+        vehicleinsurance: Array.from(vehCompanies).sort(),
+        healthinsurance: Array.from(healthCompanies).sort(),
+        lifeinsurance: Array.from(lifeCompanies).sort(),
+        building: Array.from(fireCompanies).sort(),
+        workman: Array.from(empCompanies).sort(),
+        companystaff: Array.from(healthCompanies).sort(),
+        construction: Array.from(fireCompanies).sort(),
+        akashdeepcomplex: Array.from(fireCompanies).sort(),
+        firepolicy: Array.from(fireCompanies).sort(),
+        work_orders: Array.from(woCompanies).sort(),
+        tenders: Array.from(tndCompanies).sort(),
+        test_reports: Array.from(trSet).sort(),
+        hls: Array.from(hlsCompanies).sort(),
+        pump: Array.from(pumpCompanies).sort(),
+        pannel: Array.from(pannelCompanies).sort(),
+        pv_module: Array.from(pvModCompanies).sort(),
+        pv_water_pumping: Array.from(pvWaterCompanies).sort(),
+        solar_photovoltaic: Array.from(spvCompanies).sort(),
+        experience: Array.from(expCompanies).sort(),
+        pump_exp: Array.from(expCompanies).sort(),
+        loan: Array.from(loanCompanies).sort(),
+      };
+
+      setCompanies(Array.from(allSet).sort());
+      setModuleCompaniesMap(map);
     } catch (error) {
       console.error('Error fetching companies:', error);
       toast.error('Failed to load company list');
@@ -262,26 +415,37 @@ const Summary = () => {
       // 1. Fetch raw data if it is a new company, else reuse cached values to satisfy performance constraints
       let dDocs = rawDocs, dSubs = rawSubs, dVeh = rawVeh, dHealth = rawHealth, dLife = rawLife, dFire = rawFire, dEmp = rawEmp, dBgs = rawBgs;
       let dShares = rawShares, dDocRen = rawDocRenewals, dSubRen = rawSubRenewals, dVehRen = rawVehRenewals, dHealthRen = rawHealthRenewals, dLifeRen = rawLifeRenewals;
+      let dWorkOrders = rawWorkOrders, dTenders = rawTenders, dSpvTR = rawSpvTR, dPvWaterTR = rawPvWaterTR, dPvModTR = rawPvModTR, dPumpTR = rawPumpTR, dPannelTR = rawPannelTR, dHlsTR = rawHlsTR, dExpCerts = rawExpCerts;
 
       if (cachedCompany !== selectedCompany) {
         const [
           docsRes, subsRes, vehRes, healthRes, lifeRes, fireRes, empRes, bgRes,
-          sharesRes, docRenRes, subRenRes, vehRenRes, healthRenRes, lifeRenRes
+          sharesRes, docRenRes, subRenRes, vehRenRes, healthRenRes, lifeRenRes,
+          woRes, tndRes, spvRes, pvWaterRes, pvModRes, pumpRes, pannelRes, hlsRes, expRes
         ] = await Promise.all([
-          supabase.from('Add New Document').select('*').eq('company_name', selectedCompany).eq('is_deleted', false),
-          supabase.from('create_subscription').select('*').eq('company_name', selectedCompany),
-          supabase.from('vehicle_insurance').select('*').eq('company_name', selectedCompany),
-          supabase.from('health_insurance').select('*').eq('company_name', selectedCompany),
-          supabase.from('life_insurance').select('*').eq('company_name', selectedCompany),
-          supabase.from('fire_policy').select('*').eq('company_name', selectedCompany),
-          supabase.from('employee_compensation').select('*').eq('company_name', selectedCompany),
-          supabase.from('BG').select('*'),
-          supabase.from('Shared_Documents').select('*'),
-          supabase.from('Document Renewal').select('*'),
-          supabase.from('RENEWAL').select('*'),
-          supabase.from('vehicle_insurance_renewal').select('*'),
-          supabase.from('health_insurance_renewal').select('*'),
-          supabase.from('life_insurance_renewal').select('*'),
+          safeQuery(supabase.from('Add New Document').select('*').eq('company_name', selectedCompany).eq('is_deleted', false)),
+          safeQuery(supabase.from('create_subscription').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('vehicle_insurance').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('health_insurance').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('life_insurance').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('fire_policy').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('employee_compensation').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('BG').select('*')),
+          safeQuery(supabase.from('Shared_Documents').select('*')),
+          safeQuery(supabase.from('Document Renewal').select('*')),
+          safeQuery(supabase.from('RENEWAL').select('*')),
+          safeQuery(supabase.from('vehicle_insurance_renewal').select('*')),
+          safeQuery(supabase.from('health_insurance_renewal').select('*')),
+          safeQuery(supabase.from('life_insurance_renewal').select('*')),
+          safeQuery(supabase.from('work_orders').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('tenders').select('*').eq('firm_name', selectedCompany)),
+          safeQuery(supabase.from('solar_photovoltaic_test_reports').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('pv_water_pumping_test_reports').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('pv_module_test_reports').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('pump_test_reports').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('pannel_test_reports').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('hls_test_reports').select('*').eq('company_name', selectedCompany)),
+          safeQuery(supabase.from('pump_experience_certificates').select('*').eq('company_name', selectedCompany)),
         ]);
 
         dDocs = docsRes.data || [];
@@ -298,6 +462,15 @@ const Summary = () => {
         dVehRen = vehRenRes.data || [];
         dHealthRen = healthRenRes.data || [];
         dLifeRen = lifeRenRes.data || [];
+        dWorkOrders = woRes.data || [];
+        dTenders = tndRes.data || [];
+        dSpvTR = spvRes.data || [];
+        dPvWaterTR = pvWaterRes.data || [];
+        dPvModTR = pvModRes.data || [];
+        dPumpTR = pumpRes.data || [];
+        dPannelTR = pannelRes.data || [];
+        dHlsTR = hlsRes.data || [];
+        dExpCerts = expRes.data || [];
 
         // Update caches
         setRawDocs(dDocs);
@@ -314,6 +487,15 @@ const Summary = () => {
         setRawVehRenewals(dVehRen);
         setRawHealthRenewals(dHealthRen);
         setRawLifeRenewals(dLifeRen);
+        setRawWorkOrders(dWorkOrders);
+        setRawTenders(dTenders);
+        setRawSpvTR(dSpvTR);
+        setRawPvWaterTR(dPvWaterTR);
+        setRawPvModTR(dPvModTR);
+        setRawPumpTR(dPumpTR);
+        setRawPannelTR(dPannelTR);
+        setRawHlsTR(dHlsTR);
+        setRawExpCerts(dExpCerts);
         setCachedCompany(selectedCompany);
       }
 
@@ -552,6 +734,143 @@ const Summary = () => {
         });
       });
 
+      // Add Work Orders
+      dWorkOrders.forEach(w => {
+        const shares = docShareMap.get(w.serial_no) || 0;
+        let shareStatusVal: DashboardItem['shareStatus'] = 'Not Shared';
+        if (shares > 2) shareStatusVal = 'Most Shared';
+        else if (shares > 0) shareStatusVal = 'Shared';
+
+        allUnifiedItems.push({
+          id: `wo-${w.id}`,
+          sn: w.serial_no || `WO-${w.id}`,
+          module: 'work_order',
+          subType: 'Work Order',
+          name: w.scheme || w.department || 'Work Order',
+          category: w.department || w.state || 'Work Orders',
+          status: 'Active',
+          expiryDate: null,
+          premium: w.total_value ? Number(w.total_value) : 0,
+          shareCount: shares,
+          renewalCount: 0,
+          priority: 'Low',
+          renewalStatus: 'No Renewal Required',
+          shareStatus: shareStatusVal,
+          created_at: w.created_at || w.date || '',
+          need_renewal: false
+        });
+      });
+
+      // Add Tenders
+      dTenders.forEach(t => {
+        const expField = t.tender_end_date || null;
+        const expDate = expField ? new Date(expField) : null;
+        const isExpired = expDate ? expDate < today : false;
+        const isExpiringSoon = expDate ? (expDate >= today && expDate <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)) : false;
+        const statusVal = isExpired ? 'Expired' : (isExpiringSoon ? 'Expiring Soon' : 'Active');
+
+        let priorityVal: DashboardItem['priority'] = 'Low';
+        if (isExpired) priorityVal = 'Critical';
+        else if (isExpiringSoon) priorityVal = 'High';
+
+        const shares = docShareMap.get(t.serial_no) || 0;
+        let shareStatusVal: DashboardItem['shareStatus'] = 'Not Shared';
+        if (shares > 2) shareStatusVal = 'Most Shared';
+        else if (shares > 0) shareStatusVal = 'Shared';
+
+        allUnifiedItems.push({
+          id: `tnd-${t.id}`,
+          sn: t.serial_no || `TND-${t.id}`,
+          module: 'tender',
+          subType: 'Tender',
+          name: t.tender_name || 'Tender',
+          category: t.name_of_department || t.state_name || 'Tenders',
+          status: statusVal,
+          expiryDate: expField,
+          premium: 0,
+          shareCount: shares,
+          renewalCount: 0,
+          priority: priorityVal,
+          renewalStatus: 'No Renewal Required',
+          shareStatus: shareStatusVal,
+          created_at: t.created_at || t.tender_start_date || '',
+          need_renewal: isExpired || isExpiringSoon
+        });
+      });
+
+      // Add Test Reports (Helper for 6 tables)
+      const addTestReportsToUnified = (list: any[], subTypeLabel: string, prefix: string) => {
+        list.forEach(tr => {
+          const expField = tr.valid_upto || tr.valid_date || tr.validity_date || null;
+          const expDate = expField ? new Date(expField) : null;
+          const isExpired = expDate ? expDate < today : false;
+          const isExpiringSoon = expDate ? (expDate >= today && expDate <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)) : false;
+          const statusVal = isExpired ? 'Expired' : (isExpiringSoon ? 'Expiring Soon' : 'Active');
+
+          let priorityVal: DashboardItem['priority'] = 'Low';
+          if (isExpired) priorityVal = 'Critical';
+          else if (isExpiringSoon) priorityVal = 'High';
+
+          const shares = docShareMap.get(tr.serial_no) || 0;
+          let shareStatusVal: DashboardItem['shareStatus'] = 'Not Shared';
+          if (shares > 2) shareStatusVal = 'Most Shared';
+          else if (shares > 0) shareStatusVal = 'Shared';
+
+          allUnifiedItems.push({
+            id: `tr-${prefix}-${tr.id}`,
+            sn: tr.serial_no || `TR-${tr.id}`,
+            module: 'test_report',
+            subType: subTypeLabel,
+            name: tr.test_report_no || tr.model_no || tr.certificate_no || subTypeLabel,
+            category: tr.pump_manufacturer || tr.type || 'Test Reports',
+            status: statusVal,
+            expiryDate: expField,
+            premium: 0,
+            shareCount: shares,
+            renewalCount: 0,
+            priority: priorityVal,
+            renewalStatus: 'No Renewal Required',
+            shareStatus: shareStatusVal,
+            created_at: tr.created_at || '',
+            need_renewal: isExpired || isExpiringSoon
+          });
+        });
+      };
+
+      addTestReportsToUnified(dSpvTR, 'Solar Photovoltaic Test Report', 'spv');
+      addTestReportsToUnified(dPvWaterTR, 'PV Water Pumping Test Report', 'pvwater');
+      addTestReportsToUnified(dPvModTR, 'PV Module Test Report', 'pvmod');
+      addTestReportsToUnified(dPumpTR, 'Pump Test Report', 'pump');
+      addTestReportsToUnified(dPannelTR, 'Panel Test Report', 'pannel');
+      addTestReportsToUnified(dHlsTR, 'HLS Test Report', 'hls');
+
+      // Add Experience Certificates
+      dExpCerts.forEach(exp => {
+        const shares = docShareMap.get(exp.serial_no) || 0;
+        let shareStatusVal: DashboardItem['shareStatus'] = 'Not Shared';
+        if (shares > 2) shareStatusVal = 'Most Shared';
+        else if (shares > 0) shareStatusVal = 'Shared';
+
+        allUnifiedItems.push({
+          id: `exp-${exp.id}`,
+          sn: exp.serial_no || `EXP-${exp.id}`,
+          module: 'experience',
+          subType: 'Experience Certificate',
+          name: exp.work_name || exp.client_name || 'Experience Certificate',
+          category: exp.client_name || exp.department || 'Experience Certificates',
+          status: 'Active',
+          expiryDate: exp.issue_date || null,
+          premium: exp.value ? Number(exp.value) : 0,
+          shareCount: shares,
+          renewalCount: 0,
+          priority: 'Low',
+          renewalStatus: 'No Renewal Required',
+          shareStatus: shareStatusVal,
+          created_at: exp.created_at || exp.issue_date || '',
+          need_renewal: false
+        });
+      });
+
       // Apply the 10 MIS filters dynamically on the unified dataset
       let filteredItems = allUnifiedItems;
 
@@ -570,8 +889,41 @@ const Summary = () => {
           filteredItems = filteredItems.filter(item => item.module === 'insurance');
         } else if (moduleFilter === 'bg') {
           filteredItems = filteredItems.filter(item => item.module === 'bg');
+        } else if (moduleFilter === 'work_orders') {
+          filteredItems = filteredItems.filter(item => item.module === 'work_order');
+        } else if (moduleFilter === 'tenders') {
+          filteredItems = filteredItems.filter(item => item.module === 'tender');
+        } else if (moduleFilter === 'test_reports') {
+          filteredItems = filteredItems.filter(item => item.module === 'test_report');
+        } else if (moduleFilter === 'experience') {
+          filteredItems = filteredItems.filter(item => item.module === 'experience');
+        } else if (moduleFilter === 'vehicleinsurance') {
+          filteredItems = filteredItems.filter(item => item.subType === 'Vehicle Insurance');
+        } else if (moduleFilter === 'healthinsurance') {
+          filteredItems = filteredItems.filter(item => item.subType === 'Health Insurance');
+        } else if (moduleFilter === 'lifeinsurance') {
+          filteredItems = filteredItems.filter(item => item.subType === 'Life Insurance');
+        } else if (moduleFilter === 'firepolicy') {
+          filteredItems = filteredItems.filter(item => item.subType === 'Fire Policy');
+        } else if (moduleFilter === 'workman') {
+          filteredItems = filteredItems.filter(item => item.subType === 'Employee Compensation' || item.subType.includes('Compensation') || item.subType.includes('Workman'));
+        } else if (moduleFilter === 'hls') {
+          filteredItems = filteredItems.filter(item => item.subType === 'HLS Test Report');
+        } else if (moduleFilter === 'pump') {
+          filteredItems = filteredItems.filter(item => item.subType === 'Pump Test Report');
+        } else if (moduleFilter === 'pannel') {
+          filteredItems = filteredItems.filter(item => item.subType === 'Panel Test Report');
+        } else if (moduleFilter === 'pv_module') {
+          filteredItems = filteredItems.filter(item => item.subType === 'PV Module Test Report');
+        } else if (moduleFilter === 'pv_water_pumping') {
+          filteredItems = filteredItems.filter(item => item.subType === 'PV Water Pumping Test Report');
+        } else if (moduleFilter === 'solar_photovoltaic') {
+          filteredItems = filteredItems.filter(item => item.subType === 'Solar Photovoltaic Test Report');
         } else {
-          filteredItems = filteredItems.filter(item => item.subType.toLowerCase().replace(/\s+/g, '') === moduleFilter.replace(/\s+/g, ''));
+          filteredItems = filteredItems.filter(item => 
+            item.subType.toLowerCase().replace(/[^a-z0-9]/g, '').includes(moduleFilter.toLowerCase().replace(/[^a-z0-9]/g, '')) ||
+            item.category.toLowerCase().replace(/[^a-z0-9]/g, '').includes(moduleFilter.toLowerCase().replace(/[^a-z0-9]/g, ''))
+          );
         }
       }
 
@@ -676,6 +1028,10 @@ const Summary = () => {
       const totalSubs = filteredItems.filter(i => i.module === 'subscription').length;
       const totalInsurance = filteredItems.filter(i => i.module === 'insurance').length;
       const totalBgs = filteredItems.filter(i => i.module === 'bg').length;
+      const totalWorkOrders = filteredItems.filter(i => i.module === 'work_order').length;
+      const totalTenders = filteredItems.filter(i => i.module === 'tender').length;
+      const totalTestReports = filteredItems.filter(i => i.module === 'test_report').length;
+      const totalExperience = filteredItems.filter(i => i.module === 'experience').length;
       
       const activeRecords = filteredItems.filter(i => i.status === 'Active').length;
       const expiredRecords = filteredItems.filter(i => i.status === 'Expired').length;
@@ -702,16 +1058,31 @@ const Summary = () => {
       const bgsExpired = filteredItems.filter(i => i.module === 'bg' && i.status === 'Expired').length;
       const bgsPendingRenewal = filteredItems.filter(i => i.module === 'bg' && i.need_renewal && i.status !== 'Active').length;
 
+      const woActive = filteredItems.filter(i => i.module === 'work_order' && i.status === 'Active').length;
+      const woExpired = filteredItems.filter(i => i.module === 'work_order' && i.status === 'Expired').length;
+
+      const tndActive = filteredItems.filter(i => i.module === 'tender' && i.status === 'Active').length;
+      const tndExpired = filteredItems.filter(i => i.module === 'tender' && i.status === 'Expired').length;
+
+      const trActive = filteredItems.filter(i => i.module === 'test_report' && i.status === 'Active').length;
+      const trExpired = filteredItems.filter(i => i.module === 'test_report' && i.status === 'Expired').length;
+
+      const expActive = filteredItems.filter(i => i.module === 'experience' && i.status === 'Active').length;
+      const expExpired = filteredItems.filter(i => i.module === 'experience' && i.status === 'Expired').length;
+
       // Executive Insights
       // Highest Risk Category: Which module has the most expired items?
       let highestRiskCategory = 'None';
-      const riskScores = { Documents: docsExpired, Subscriptions: subsExpired, Insurance: insExpired, 'Bank Guarantees': bgsExpired };
-      const maxExpired = Math.max(docsExpired, subsExpired, insExpired, bgsExpired);
+      const maxExpired = Math.max(docsExpired, subsExpired, insExpired, bgsExpired, woExpired, tndExpired, trExpired, expExpired);
       if (maxExpired > 0) {
         if (maxExpired === docsExpired) highestRiskCategory = 'Documents';
         else if (maxExpired === subsExpired) highestRiskCategory = 'Subscriptions';
         else if (maxExpired === insExpired) highestRiskCategory = 'Insurance';
-        else highestRiskCategory = 'Bank Guarantees';
+        else if (maxExpired === bgsExpired) highestRiskCategory = 'Bank Guarantees';
+        else if (maxExpired === woExpired) highestRiskCategory = 'Work Orders';
+        else if (maxExpired === tndExpired) highestRiskCategory = 'Tenders';
+        else if (maxExpired === trExpired) highestRiskCategory = 'Test Reports';
+        else highestRiskCategory = 'Experience Certificates';
       }
 
       // Most Shared Document
@@ -847,6 +1218,10 @@ const Summary = () => {
         totalSubs,
         totalInsurance,
         totalBgs,
+        totalWorkOrders,
+        totalTenders,
+        totalTestReports,
+        totalExperience,
         activeRecords,
         expiredRecords,
         expiringSoon,
@@ -872,6 +1247,10 @@ const Summary = () => {
         subscriptions: filteredItems.filter(i => i.module === 'subscription'),
         insurance: filteredItems.filter(i => i.module === 'insurance'),
         bgs: filteredItems.filter(i => i.module === 'bg'),
+        workOrders: filteredItems.filter(i => i.module === 'work_order'),
+        tenders: filteredItems.filter(i => i.module === 'tender'),
+        testReports: filteredItems.filter(i => i.module === 'test_report'),
+        experience: filteredItems.filter(i => i.module === 'experience'),
         recentActivities: activities.slice(0, 8),
 
         // status matrix details
@@ -886,7 +1265,15 @@ const Summary = () => {
         insPendingRenewal,
         bgsActive,
         bgsExpired,
-        bgsPendingRenewal
+        bgsPendingRenewal,
+        woActive,
+        woExpired,
+        tndActive,
+        tndExpired,
+        trActive,
+        trExpired,
+        expActive,
+        expExpired
       };
 
       setReportData(finalReport);
@@ -923,6 +1310,10 @@ const Summary = () => {
       ["Total Subscriptions", reportData.totalSubs],
       ["Total Insurance Policies", reportData.totalInsurance],
       ["Total Bank Guarantees", reportData.totalBgs],
+      ["Total Work Orders", reportData.totalWorkOrders || 0],
+      ["Total Tenders", reportData.totalTenders || 0],
+      ["Total Test Reports", reportData.totalTestReports || 0],
+      ["Total Experience Certificates", reportData.totalExperience || 0],
       ["Active Records", reportData.activeRecords],
       ["Expired Records", reportData.expiredRecords],
       ["Expiring Soon", reportData.expiringSoon],
@@ -1001,8 +1392,61 @@ const Summary = () => {
     const wsBgs = XLSX.utils.aoa_to_sheet([...bgHeaders, ...bgRows]);
     XLSX.utils.book_append_sheet(wb, wsBgs, "Bank Guarantees");
 
+    // 6. Work Orders Sheet Data
+    const woHeaders = [["Serial No", "Scheme/Department", "Category/State", "Status", "Total Value", "Created At"]];
+    const woRows = (reportData.workOrders || []).map(w => [
+      w.sn,
+      w.name,
+      w.category,
+      w.status,
+      w.premium,
+      w.created_at ? new Date(w.created_at).toLocaleDateString('en-IN') : "-"
+    ]);
+    const wsWo = XLSX.utils.aoa_to_sheet([...woHeaders, ...woRows]);
+    XLSX.utils.book_append_sheet(wb, wsWo, "Work Orders");
+
+    // 7. Tenders Sheet Data
+    const tndHeaders = [["Serial No", "Tender Name", "Department/State", "Status", "Expiry Date", "Created At"]];
+    const tndRows = (reportData.tenders || []).map(t => [
+      t.sn,
+      t.name,
+      t.category,
+      t.status,
+      t.expiryDate ? formatDate(t.expiryDate) : "-",
+      t.created_at ? new Date(t.created_at).toLocaleDateString('en-IN') : "-"
+    ]);
+    const wsTnd = XLSX.utils.aoa_to_sheet([...tndHeaders, ...tndRows]);
+    XLSX.utils.book_append_sheet(wb, wsTnd, "Tenders");
+
+    // 8. Test Reports Sheet Data
+    const trHeaders = [["Serial No", "Report/Model No", "Type/Category", "Status", "Valid Date", "Created At"]];
+    const trRows = (reportData.testReports || []).map(r => [
+      r.sn,
+      r.name,
+      r.category,
+      r.status,
+      r.expiryDate ? formatDate(r.expiryDate) : "-",
+      r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN') : "-"
+    ]);
+    const wsTr = XLSX.utils.aoa_to_sheet([...trHeaders, ...trRows]);
+    XLSX.utils.book_append_sheet(wb, wsTr, "Test Reports");
+
+    // 9. Experience Certificates Sheet Data
+    const expHeaders = [["Serial No", "Work/Client Name", "Department", "Status", "Value", "Issue Date", "Created At"]];
+    const expRows = (reportData.experience || []).map(e => [
+      e.sn,
+      e.name,
+      e.category,
+      e.status,
+      e.premium,
+      e.expiryDate ? formatDate(e.expiryDate) : "-",
+      e.created_at ? new Date(e.created_at).toLocaleDateString('en-IN') : "-"
+    ]);
+    const wsExp = XLSX.utils.aoa_to_sheet([...expHeaders, ...expRows]);
+    XLSX.utils.book_append_sheet(wb, wsExp, "Experience Certificates");
+
     // Auto-adjust column widths
-    const sheets = [wsSummary, wsDocs, wsSubs, wsIns, wsBgs];
+    const sheets = [wsSummary, wsDocs, wsSubs, wsIns, wsBgs, wsWo, wsTnd, wsTr, wsExp];
     sheets.forEach(ws => {
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
       const colWidths = [];
@@ -1103,7 +1547,11 @@ const Summary = () => {
   };
 
   // Dropdown helper functions
-  const filteredCompanyOptions = companies.filter(c => 
+  const availableCompanies = (moduleFilter && moduleFilter !== 'all' && moduleCompaniesMap[moduleFilter])
+    ? moduleCompaniesMap[moduleFilter]
+    : companies;
+
+  const filteredCompanyOptions = availableCompanies.filter(c => 
     c.toLowerCase().includes(companySearchQuery.toLowerCase())
   );
 
@@ -1144,7 +1592,66 @@ const Summary = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           
-          {/* Company Search Dropdown */}
+          {/* 1. Module Search Dropdown (Search + Dropdown) */}
+          <div className="relative" ref={moduleDropdownRef}>
+            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Module Filter</label>
+            <button
+              onClick={() => setIsModuleDropdownOpen(!isModuleDropdownOpen)}
+              className="w-full px-3 py-2 text-left border border-gray-200 rounded-xl bg-white shadow-sm flex justify-between items-center text-xs text-gray-700 hover:border-gray-300 focus:outline-none transition-all"
+            >
+              <span className="truncate font-semibold">
+                {MODULE_OPTIONS.find((opt) => opt.value === moduleFilter)?.label || 'Choose Module...'}
+              </span>
+              <ChevronDown size={14} className={`text-gray-400 transition-transform ${isModuleDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isModuleDropdownOpen && (
+              <div className="absolute z-50 w-64 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl max-h-64 flex flex-col overflow-hidden animate-scale-in">
+                <div className="p-2 border-b border-gray-50 bg-gray-50/50 flex items-center gap-1.5">
+                  <Search size={12} className="text-gray-400" />
+                  <input
+                    type="text"
+                    value={moduleSearchQuery}
+                    onChange={(e) => setModuleSearchQuery(e.target.value)}
+                    placeholder="Search module or page..."
+                    className="w-full text-[11px] outline-none border-none bg-transparent text-gray-700"
+                    autoFocus
+                  />
+                </div>
+                <div className="overflow-y-auto flex-1 py-1 max-h-48 no-scrollbar">
+                  {filteredModuleOptions.length > 0 ? (
+                    filteredModuleOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => {
+                          const newModule = opt.value;
+                          setModuleFilter(newModule);
+                          setIsModuleDropdownOpen(false);
+                          setModuleSearchQuery('');
+
+                          const validComps = newModule === 'all' ? companies : (moduleCompaniesMap[newModule] || []);
+                          if (selectedCompany && validComps.length > 0 && !validComps.includes(selectedCompany)) {
+                            setSelectedCompany('');
+                            setReportData(null);
+                          }
+                        }}
+                        className={`w-full text-left px-3 py-2 text-[11px] hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${
+                          moduleFilter === opt.value ? 'text-indigo-600 font-semibold bg-indigo-50/20' : 'text-gray-700'
+                        }`}
+                      >
+                        <span className="truncate">{opt.label}</span>
+                        {moduleFilter === opt.value && <Check size={12} className="text-indigo-600" />}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="p-3 text-center text-[10px] text-gray-400">No modules matched</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Company Search Dropdown */}
           <div className="relative" ref={dropdownRef}>
             <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Company Selection</label>
             <button
@@ -1212,27 +1719,6 @@ const Summary = () => {
               <option value="quarter">This Quarter</option>
               <option value="year">This Year</option>
               <option value="custom">Custom Date Range</option>
-            </select>
-          </div>
-
-          {/* Module filter */}
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Module Filter</label>
-            <select
-              value={moduleFilter}
-              onChange={(e) => setModuleFilter(e.target.value)}
-              className="w-full bg-white border border-gray-200 text-gray-700 text-xs rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="all">All Modules</option>
-              <option value="documents">Documents</option>
-              <option value="subscriptions">Subscriptions</option>
-              <option value="insurance">Insurance</option>
-              <option value="bg">Bank Guarantees</option>
-              <option value="vehicleinsurance">Vehicle Insurance</option>
-              <option value="healthinsurance">Health Insurance</option>
-              <option value="lifeinsurance">Life Insurance</option>
-              <option value="firepolicy">Fire Policy</option>
-              <option value="employeecompensation">Employee Compensation</option>
             </select>
           </div>
 
@@ -1547,6 +2033,42 @@ const Summary = () => {
               <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Building size={18} /></div>
             </div>
 
+            {/* 4.6 Total Work Orders */}
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Work Orders</span>
+                <span className="text-xl font-black text-gray-800 block mt-1">{reportData.totalWorkOrders || 0}</span>
+              </div>
+              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><Briefcase size={18} /></div>
+            </div>
+
+            {/* 4.7 Total Tenders */}
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Tenders</span>
+                <span className="text-xl font-black text-gray-800 block mt-1">{reportData.totalTenders || 0}</span>
+              </div>
+              <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><FileCheck size={18} /></div>
+            </div>
+
+            {/* 4.8 Total Test Reports */}
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Test Reports</span>
+                <span className="text-xl font-black text-gray-800 block mt-1">{reportData.totalTestReports || 0}</span>
+              </div>
+              <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg"><FileSpreadsheet size={18} /></div>
+            </div>
+
+            {/* 4.9 Total Experience Certificates */}
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Experience</span>
+                <span className="text-xl font-black text-gray-800 block mt-1">{reportData.totalExperience || 0}</span>
+              </div>
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Award size={18} /></div>
+            </div>
+
             {/* 5. Active Records */}
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
               <div>
@@ -1808,28 +2330,52 @@ const Summary = () => {
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         <tr>
-                          <td className="p-3 font-semibold text-gray-700">Documents</td>
-                          <td className="p-3 text-center font-bold">{reportData.totalDocs}</td>
-                          <td className="p-3 text-center text-green-600 font-bold">{reportData.docsActive}</td>
-                          <td className="p-3 text-center text-red-600 font-bold">{reportData.docsExpired}</td>
+                          <td className="p-2 font-semibold text-gray-700">Documents</td>
+                          <td className="p-2 text-center font-bold">{reportData.totalDocs}</td>
+                          <td className="p-2 text-center text-green-600 font-bold">{reportData.docsActive}</td>
+                          <td className="p-2 text-center text-red-600 font-bold">{reportData.docsExpired}</td>
                         </tr>
                         <tr>
-                          <td className="p-3 font-semibold text-gray-700">Subscriptions</td>
-                          <td className="p-3 text-center font-bold">{reportData.totalSubs}</td>
-                          <td className="p-3 text-center text-green-600 font-bold">{reportData.subsActive}</td>
-                          <td className="p-3 text-center text-red-600 font-bold">{reportData.subsExpired}</td>
+                          <td className="p-2 font-semibold text-gray-700">Subscriptions</td>
+                          <td className="p-2 text-center font-bold">{reportData.totalSubs}</td>
+                          <td className="p-2 text-center text-green-600 font-bold">{reportData.subsActive}</td>
+                          <td className="p-2 text-center text-red-600 font-bold">{reportData.subsExpired}</td>
                         </tr>
                         <tr>
-                          <td className="p-3 font-semibold text-gray-700">Insurance Policies</td>
-                          <td className="p-3 text-center font-bold">{reportData.totalInsurance}</td>
-                          <td className="p-3 text-center text-green-600 font-bold">{reportData.insActive}</td>
-                          <td className="p-3 text-center text-red-600 font-bold">{reportData.insExpired}</td>
+                          <td className="p-2 font-semibold text-gray-700">Insurance Policies</td>
+                          <td className="p-2 text-center font-bold">{reportData.totalInsurance}</td>
+                          <td className="p-2 text-center text-green-600 font-bold">{reportData.insActive}</td>
+                          <td className="p-2 text-center text-red-600 font-bold">{reportData.insExpired}</td>
                         </tr>
                         <tr>
-                          <td className="p-3 font-semibold text-gray-700">Bank Guarantees</td>
-                          <td className="p-3 text-center font-bold">{reportData.totalBgs}</td>
-                          <td className="p-3 text-center text-green-600 font-bold">{reportData.bgsActive}</td>
-                          <td className="p-3 text-center text-red-600 font-bold">{reportData.bgsExpired}</td>
+                          <td className="p-2 font-semibold text-gray-700">Bank Guarantees</td>
+                          <td className="p-2 text-center font-bold">{reportData.totalBgs}</td>
+                          <td className="p-2 text-center text-green-600 font-bold">{reportData.bgsActive}</td>
+                          <td className="p-2 text-center text-red-600 font-bold">{reportData.bgsExpired}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-semibold text-gray-700">Work Orders</td>
+                          <td className="p-2 text-center font-bold">{reportData.totalWorkOrders || 0}</td>
+                          <td className="p-2 text-center text-green-600 font-bold">{reportData.woActive || 0}</td>
+                          <td className="p-2 text-center text-red-600 font-bold">{reportData.woExpired || 0}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-semibold text-gray-700">Tenders</td>
+                          <td className="p-2 text-center font-bold">{reportData.totalTenders || 0}</td>
+                          <td className="p-2 text-center text-green-600 font-bold">{reportData.tndActive || 0}</td>
+                          <td className="p-2 text-center text-red-600 font-bold">{reportData.tndExpired || 0}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-semibold text-gray-700">Test Reports</td>
+                          <td className="p-2 text-center font-bold">{reportData.totalTestReports || 0}</td>
+                          <td className="p-2 text-center text-green-600 font-bold">{reportData.trActive || 0}</td>
+                          <td className="p-2 text-center text-red-600 font-bold">{reportData.trExpired || 0}</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 font-semibold text-gray-700">Experience Certificates</td>
+                          <td className="p-2 text-center font-bold">{reportData.totalExperience || 0}</td>
+                          <td className="p-2 text-center text-green-600 font-bold">{reportData.expActive || 0}</td>
+                          <td className="p-2 text-center text-red-600 font-bold">{reportData.expExpired || 0}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -1844,7 +2390,7 @@ const Summary = () => {
                 {/* Footer Metadata */}
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 1 of 4</span>
+                  <span>Page 1 of 6</span>
                 </div>
               </div>
 
@@ -1951,7 +2497,7 @@ const Summary = () => {
 
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 2 of 4</span>
+                  <span>Page 2 of 6</span>
                 </div>
               </div>
 
@@ -2033,7 +2579,7 @@ const Summary = () => {
 
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 3 of 4</span>
+                  <span>Page 3 of 6</span>
                 </div>
               </div>
 
@@ -2113,7 +2659,207 @@ const Summary = () => {
 
                 <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
                   <span>DS Dashboard MIS Reports Console</span>
-                  <span>Page 4 of 4</span>
+                  <span>Page 4 of 6</span>
+                </div>
+              </div>
+
+              {/* PAGE 5: WORK ORDERS & TENDERS SUMMARY */}
+              <div className="pdf-page bg-white shadow-xl p-10 mx-auto relative border border-gray-200/50 block" style={{ width: '210mm', minHeight: '296mm', height: 'auto', boxSizing: 'border-box' }}>
+                <div className="space-y-4 pb-4">
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600">{reportData.companyName} - Work Orders & Tenders</h2>
+                    <span className="text-[10px] text-gray-400 font-mono">Generated: {reportData.generatedAt}</span>
+                  </div>
+
+                  {/* Work Orders Section */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700">Work Orders Summary Table</h3>
+                      <span className="text-[9px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-bold">
+                        Total Work Orders: {reportData.totalWorkOrders || 0}
+                      </span>
+                    </div>
+                    {reportData.workOrders && reportData.workOrders.length > 0 ? (
+                      <table className="w-full text-left border-collapse text-[10px]">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase">
+                            <th className="p-2">Serial</th>
+                            <th className="p-2">Scheme / Work Name</th>
+                            <th className="p-2">Department</th>
+                            <th className="p-2 text-center">Status</th>
+                            <th className="p-2 text-right">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {reportData.workOrders.map((wo, idx) => (
+                            <tr key={idx}>
+                              <td className="p-2 font-mono font-bold text-indigo-600">{wo.sn}</td>
+                              <td className="p-2 font-medium text-gray-900 truncate max-w-[180px]">{wo.name}</td>
+                              <td className="p-2 text-gray-500">{wo.category}</td>
+                              <td className="p-2 text-center">
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                  wo.status === 'Expired' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                }`}>
+                                  {wo.status}
+                                </span>
+                              </td>
+                              <td className="p-2 text-right font-medium">{wo.premium ? `₹${wo.premium.toLocaleString('en-IN')}` : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="p-6 bg-gray-50 border border-dashed text-center text-xs text-gray-400 rounded-xl">
+                        No Work Orders Available
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tenders Section */}
+                  <div className="space-y-3 pt-4 border-t border-gray-100">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700">Tenders Summary Table</h3>
+                      <span className="text-[9px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-bold">
+                        Total Tenders: {reportData.totalTenders || 0}
+                      </span>
+                    </div>
+                    {reportData.tenders && reportData.tenders.length > 0 ? (
+                      <table className="w-full text-left border-collapse text-[10px]">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase">
+                            <th className="p-2">Serial</th>
+                            <th className="p-2">Tender Name</th>
+                            <th className="p-2">Department/State</th>
+                            <th className="p-2 text-center">Status</th>
+                            <th className="p-2 text-center">End Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {reportData.tenders.map((tnd, idx) => (
+                            <tr key={idx}>
+                              <td className="p-2 font-mono font-bold text-indigo-600">{tnd.sn}</td>
+                              <td className="p-2 font-medium text-gray-900 truncate max-w-[180px]">{tnd.name}</td>
+                              <td className="p-2 text-gray-500">{tnd.category}</td>
+                              <td className="p-2 text-center">
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                  tnd.status === 'Expired' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                }`}>
+                                  {tnd.status}
+                                </span>
+                              </td>
+                              <td className="p-2 text-center font-medium">{tnd.expiryDate ? formatDate(tnd.expiryDate) : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="p-6 bg-gray-50 border border-dashed text-center text-xs text-gray-400 rounded-xl">
+                        No Tenders Available
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
+                  <span>DS Dashboard MIS Reports Console</span>
+                  <span>Page 5 of 6</span>
+                </div>
+              </div>
+
+              {/* PAGE 6: TEST REPORTS & EXPERIENCE CERTIFICATES */}
+              <div className="pdf-page bg-white shadow-xl p-10 mx-auto relative border border-gray-200/50 block" style={{ width: '210mm', minHeight: '296mm', height: 'auto', boxSizing: 'border-box' }}>
+                <div className="space-y-4 pb-4">
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600">{reportData.companyName} - Test Reports & Experience Certificates</h2>
+                    <span className="text-[10px] text-gray-400 font-mono">Generated: {reportData.generatedAt}</span>
+                  </div>
+
+                  {/* Test Reports Section */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700">Test Reports Summary Table</h3>
+                      <span className="text-[9px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-bold">
+                        Total Test Reports: {reportData.totalTestReports || 0}
+                      </span>
+                    </div>
+                    {reportData.testReports && reportData.testReports.length > 0 ? (
+                      <table className="w-full text-left border-collapse text-[10px]">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase">
+                            <th className="p-2">Serial</th>
+                            <th className="p-2">Report / Model No</th>
+                            <th className="p-2">Category</th>
+                            <th className="p-2 text-center">Status</th>
+                            <th className="p-2 text-center">Valid Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {reportData.testReports.map((tr, idx) => (
+                            <tr key={idx}>
+                              <td className="p-2 font-mono font-bold text-indigo-600">{tr.sn}</td>
+                              <td className="p-2 font-medium text-gray-900 truncate max-w-[180px]">{tr.name}</td>
+                              <td className="p-2 text-gray-500">{tr.category}</td>
+                              <td className="p-2 text-center">
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                  tr.status === 'Expired' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                }`}>
+                                  {tr.status}
+                                </span>
+                              </td>
+                              <td className="p-2 text-center font-medium">{tr.expiryDate ? formatDate(tr.expiryDate) : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="p-6 bg-gray-50 border border-dashed text-center text-xs text-gray-400 rounded-xl">
+                        No Test Reports Available
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Experience Certificates Section */}
+                  <div className="space-y-3 pt-4 border-t border-gray-100">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700">Experience Certificates Summary Table</h3>
+                      <span className="text-[9px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-bold">
+                        Total Experience Certificates: {reportData.totalExperience || 0}
+                      </span>
+                    </div>
+                    {reportData.experience && reportData.experience.length > 0 ? (
+                      <table className="w-full text-left border-collapse text-[10px]">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase">
+                            <th className="p-2">Serial</th>
+                            <th className="p-2">Work / Client Name</th>
+                            <th className="p-2">Department</th>
+                            <th className="p-2 text-right">Value</th>
+                            <th className="p-2 text-center">Issue Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {reportData.experience.map((exp, idx) => (
+                            <tr key={idx}>
+                              <td className="p-2 font-mono font-bold text-indigo-600">{exp.sn}</td>
+                              <td className="p-2 font-medium text-gray-900 truncate max-w-[180px]">{exp.name}</td>
+                              <td className="p-2 text-gray-500">{exp.category}</td>
+                              <td className="p-2 text-right font-medium">{exp.premium ? `₹${exp.premium.toLocaleString('en-IN')}` : '-'}</td>
+                              <td className="p-2 text-center font-medium">{exp.expiryDate ? formatDate(exp.expiryDate) : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="p-6 bg-gray-50 border border-dashed text-center text-xs text-gray-400 rounded-xl">
+                        No Experience Certificates Available
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="absolute bottom-8 left-10 right-10 flex justify-between items-center border-t pt-4 text-[10px] text-gray-400">
+                  <span>DS Dashboard MIS Reports Console</span>
+                  <span>Page 6 of 6</span>
                 </div>
               </div>
 

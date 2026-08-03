@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Building, FileText } from 'lucide-react';
-import useDataStore from '../../store/dataStore';
+import { Plus, Search, Building, FileText, Edit, Trash2 } from 'lucide-react';
+import useDataStore, { LoanItem } from '../../store/dataStore';
 import useHeaderStore from '../../store/headerStore';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/dateFormatter';
 import supabase from '../../utils/supabase';
 import AddLoan from './AddLoan';
+import EditLoan from './EditLoan';
 
 const AllLoans = () => {
     const { setTitle } = useHeaderStore();
@@ -79,6 +80,33 @@ const AllLoans = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterBank, setFilterBank] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedLoan, setSelectedLoan] = useState<LoanItem | null>(null);
+
+    const handleEdit = (item: LoanItem) => {
+        setSelectedLoan(item);
+        setIsEditModalOpen(true);
+    };
+
+    const handleDelete = async (id: string, serialNo: string) => {
+        const confirmDelete = window.confirm(`Are you sure you want to delete loan ${serialNo || ''}?`);
+        if (!confirmDelete) return;
+
+        try {
+            const { error } = await supabase
+                .from('loan')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success('Loan deleted successfully');
+            loadLoans();
+        } catch (error: any) {
+            console.error('Error deleting loan:', error);
+            toast.error('Failed to delete loan');
+        }
+    };
 
     const filteredData = loans.filter(item => {
         const matchesSearch = item.bankName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -160,6 +188,7 @@ const AllLoans = () => {
                                     <thead className="sticky top-0 z-20 bg-gray-50">
                                         <tr className="text-xs uppercase text-gray-500 font-bold tracking-wider">
                                             <th className="px-4 py-4 border-b border-gray-100">Serial No.</th>
+                                            <th className="px-4 py-4 border-b border-gray-100 text-center">Action</th>
                                             <th className="px-4 py-4 border-b border-gray-100">Company Name</th>
                                             <th className="px-4 py-4 border-b border-gray-100">Loan Name</th>
                                             <th className="px-4 py-4 border-b border-gray-100">Bank Name</th>
@@ -176,6 +205,24 @@ const AllLoans = () => {
                                         {filteredData.map((item) => (
                                             <tr key={item.id} className="hover:bg-indigo-50/30 transition-colors group/row">
                                                 <td className="px-4 py-4 font-mono text-xs font-semibold text-indigo-600">{item.sn}</td>
+                                                <td className="px-4 py-4">
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <button
+                                                            onClick={() => handleEdit(item)}
+                                                            className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition-colors"
+                                                            title="Edit Loan"
+                                                        >
+                                                            <Edit size={15} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(item.id, item.sn)}
+                                                            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
+                                                            title="Delete Loan"
+                                                        >
+                                                            <Trash2 size={15} />
+                                                        </button>
+                                                    </div>
+                                                </td>
                                                 <td className="px-4 py-4 font-semibold text-gray-900">{item.companyName}</td>
                                                 <td className="px-4 py-4 font-semibold text-gray-900">{item.loanName}</td>
                                                 <td className="px-4 py-4">
@@ -233,10 +280,26 @@ const AllLoans = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-end gap-1">
+                                        <div className="flex flex-col items-end gap-2">
                                             <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-green-50 text-green-700 border border-green-100 uppercase tracking-tight">
                                                 Active
                                             </span>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => handleEdit(item)}
+                                                    className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition-colors"
+                                                    title="Edit Loan"
+                                                >
+                                                    <Edit size={15} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(item.id, item.sn)}
+                                                    className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
+                                                    title="Delete Loan"
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -297,6 +360,15 @@ const AllLoans = () => {
                 )}
             </div>
             <AddLoan isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+            <EditLoan
+                isOpen={isEditModalOpen}
+                onClose={() => {
+                    setIsEditModalOpen(false);
+                    setSelectedLoan(null);
+                }}
+                onSuccess={loadLoans}
+                loanData={selectedLoan}
+            />
         </>
     );
 };

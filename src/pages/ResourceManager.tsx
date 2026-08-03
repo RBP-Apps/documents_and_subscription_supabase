@@ -246,8 +246,7 @@ const ResourceManager = () => {
               className="appearance-none w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 text-gray-700 text-sm font-semibold cursor-pointer hover:bg-gray-100 transition-colors shadow-sm"
             >
               <option value="hls">HLS</option>
-              {/* <option value="pump">Pump</option>
-              <option value="pannel">Pannel</option> */}
+             
               <option value="pv_module">PV Module</option>
               <option value="pv_water_pumping">PV Water Pumping</option>
               <option value="solar_photovoltaic">Solar Photovoltaic</option>

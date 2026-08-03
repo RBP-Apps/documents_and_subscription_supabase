@@ -1,16 +1,18 @@
-import React, { useState , useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import useDataStore, { LoanItem } from '../../store/dataStore';
 import { toast } from 'react-hot-toast';
 import { X, Save, Loader2 } from 'lucide-react';
 import supabase from '../../utils/supabase';
 
-interface AddLoanProps {
+interface EditLoanProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
+  loanData: LoanItem | null;
 }
 
-const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
-  const { addLoan } = useDataStore();
+const EditLoan: React.FC<EditLoanProps> = ({ isOpen, onClose, onSuccess, loanData }) => {
+  const { updateLoan } = useDataStore();
   const [formData, setFormData] = useState({
     companyName: '',
     loanName: '',
@@ -51,7 +53,26 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
     fetchMasterCompanies();
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (loanData) {
+      setFormData({
+        companyName: loanData.companyName || '',
+        loanName: loanData.loanName || '',
+        bankName: loanData.bankName || '',
+        amount: loanData.amount || '',
+        emi: loanData.emi || '',
+        startDate: loanData.startDate || '',
+        endDate: loanData.endDate || '',
+        providedDocument: loanData.providedDocument || '',
+        remarks: loanData.remarks || '',
+        file: loanData.file || null,
+        fileContent: loanData.fileContent || '',
+        fileUpload: null
+      });
+    }
+  }, [loanData, isOpen]);
+
+  if (!isOpen || !loanData) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,6 +97,7 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!loanData || !loanData.id) return;
 
     try {
       setIsSubmitting(true);
@@ -90,7 +112,7 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
         }
       }
 
-      let driveFileUrl = "";
+      let driveFileUrl = loanData.file || "";
       if (formData.fileUpload) {
         try {
           const fileExt = formData.fileUpload.name.split('.').pop();
@@ -110,29 +132,11 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
           driveFileUrl = publicUrl;
         } catch (uploadErr) {
           console.error("File upload failed:", uploadErr);
-          toast.error("File upload failed, saving record without file.");
-        }
-      }
-
-      // Generate a SN
-      // Retrieve the current max serial_no to increment
-      const { data: latestLoan } = await supabase
-        .from('loan')
-        .select('serial_no')
-        .order('id', { ascending: false })
-        .limit(1);
-        
-      let nextSn = "SN-001";
-      if (latestLoan && latestLoan.length > 0 && latestLoan[0].serial_no) {
-        const lastSnMatch = latestLoan[0].serial_no.match(/SN-(\d+)/);
-        if (lastSnMatch && lastSnMatch[1]) {
-          const nextNum = parseInt(lastSnMatch[1], 10) + 1;
-          nextSn = `SN-${String(nextNum).padStart(3, '0')}`;
+          toast.error("File upload failed, keeping existing file.");
         }
       }
 
       const rowData = {
-        serial_no: nextSn,
         company_name: formData.companyName,
         loan_name: formData.loanName,
         bank_name: formData.bankName,
@@ -145,48 +149,34 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
         remarks: formData.remarks
       };
 
-      const { data: insertData, error: insertError } = await supabase
+      const { error: updateError } = await supabase
         .from('loan')
-        .insert([rowData])
-        .select();
+        .update(rowData)
+        .eq('id', loanData.id);
 
-      if (insertError) {
-        throw insertError;
+      if (updateError) {
+        throw updateError;
       }
 
-      const serverSN = nextSn;
-      const now = new Date();
-      const timestamp = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}, ${now.toLocaleTimeString('en-GB', { hour12: false })}`;
-
-      const newItem: LoanItem = {
-        id: insertData?.[0]?.id?.toString() || Math.random().toString(36).substr(2, 9),
-        sn: serverSN,
-        Timestamp: timestamp,
-        ...formData,
-        fileContent: driveFileUrl || undefined,
-        file: driveFileUrl || formData.file
-      };
-      addLoan(newItem);
-
-      toast.success(`Loan added successfully! Serial No: ${serverSN}`);
-      onClose();
-      setFormData({
-        companyName: '',
-        loanName: '',
-        bankName: '',
-        amount: '',
-        emi: '',
-        startDate: '',
-        endDate: '',
-        providedDocument: '',
-        remarks: '',
-        file: null,
-        fileContent: '',
-        fileUpload: null
+      updateLoan(loanData.id, {
+        companyName: formData.companyName,
+        loanName: formData.loanName,
+        bankName: formData.bankName,
+        amount: formData.amount,
+        emi: formData.emi,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        providedDocument: formData.providedDocument,
+        remarks: formData.remarks,
+        file: driveFileUrl || loanData.file
       });
+
+      toast.success("Loan updated successfully!");
+      if (onSuccess) onSuccess();
+      onClose();
     } catch (error) {
-      console.error("Loan Submission Error:", error);
-      toast.error("Error saving loan details");
+      console.error("Loan Update Error:", error);
+      toast.error("Error updating loan details");
     } finally {
       setIsSubmitting(false);
     }
@@ -197,7 +187,10 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
       <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl my-auto flex flex-col max-h-[90vh]">
         {/* Modal Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
-          <h2 className="text-xl font-bold text-gray-800">Add New Loan</h2>
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">Edit Loan</h2>
+            <p className="text-xs text-indigo-600 font-semibold mt-0.5">{loanData.sn}</p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -209,13 +202,13 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
 
         {/* Modal Body */}
         <div className="p-6 md:p-8 overflow-y-auto flex-1">
-          <form id="add-loan-form" onSubmit={handleSubmit} className="space-y-4">
+          <form id="edit-loan-form" onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                 Company Name <span className="text-red-500">*</span>
               </label>
               <input
-                list="add-loan-company-list"
+                list="edit-loan-company-list"
                 type="text"
                 required
                 className="w-full p-2.5 shadow-input border-none rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
@@ -223,7 +216,7 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
                 onChange={e => setFormData({ ...formData, companyName: e.target.value })}
                 placeholder="Select or enter Company Name"
               />
-              <datalist id="add-loan-company-list">
+              <datalist id="edit-loan-company-list">
                 {masterCompanies.map((company, index) => (
                   <option key={index} value={company} />
                 ))}
@@ -316,13 +309,13 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Upload Document</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Upload Document (Optional)</label>
                 <input
                   type="file"
                   className="w-full p-2 shadow-input border-none rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                   onChange={handleFileChange}
                 />
-                {formData.file && <p className="text-xs text-green-600 mt-1">Selected: {formData.file}</p>}
+                {formData.file && <p className="text-xs text-indigo-600 mt-1 truncate">Current file: {formData.file}</p>}
               </div>
             </div>
 
@@ -351,19 +344,19 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
           </button>
           <button
             type="submit"
-            form="add-loan-form"
+            form="edit-loan-form"
             disabled={isSubmitting}
             className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Saving...
+                Updating...
               </>
             ) : (
               <>
                 <Save size={18} />
-                Save Loan
+                Update Loan
               </>
             )}
           </button>
@@ -373,4 +366,4 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
   );
 };
 
-export default AddLoan;
+export default EditLoan;

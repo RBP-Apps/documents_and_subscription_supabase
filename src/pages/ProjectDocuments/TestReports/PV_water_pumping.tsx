@@ -449,6 +449,27 @@ const AddPwpModal: React.FC<AddPwpModalProps> = ({
   const [fileName, setFileName] = useState('');
   const [fileSize, setFileSize] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [masterCompanies, setMasterCompanies] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return null;
+    const fetchMasterCompanies = async () => {
+      try {
+        const { data, error } = await supabase.from('master').select('company_name');
+        if (error) throw error;
+        if (data) {
+          const comps = data
+            .map((item) => item.company_name)
+            .filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+          setMasterCompanies(Array.from(new Set(comps)));
+        }
+      } catch (err) {
+        console.error('Error fetching company names from master:', err);
+      }
+    };
+
+    fetchMasterCompanies();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -476,6 +497,12 @@ const AddPwpModal: React.FC<AddPwpModalProps> = ({
     let fileUrl = '';
 
     try {
+      if (companyName.trim()) {
+        const exists = masterCompanies.some((c) => c.toLowerCase() === companyName.trim().toLowerCase());
+        if (!exists) {
+          await supabase.from('master').insert([{ company_name: companyName.trim() }]);
+        }
+      }
       if (file) {
         const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
         const filePath = `test_reports/pv_water_pumping/${Date.now()}_${cleanFileName}`;
@@ -623,13 +650,19 @@ const AddPwpModal: React.FC<AddPwpModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name *</label>
               <input
+                list="add-pwp-company-list"
                 type="text"
                 required
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. RBP Projects"
+                placeholder="Select or enter company name"
               />
+              <datalist id="add-pwp-company-list">
+                {masterCompanies.map((company, index) => (
+                  <option key={index} value={company} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Module Manufacture</label>
@@ -800,6 +833,27 @@ const EditPwpModal: React.FC<EditPwpModalProps> = ({
   const [fileName, setFileName] = useState(reportData.file_url ? 'Existing File' : '');
   const [fileSize, setFileSize] = useState(reportData.file_size || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [masterCompanies, setMasterCompanies] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchMasterCompanies = async () => {
+      try {
+        const { data, error } = await supabase.from('master').select('company_name');
+        if (error) throw error;
+        if (data) {
+          const comps = data
+            .map((item) => item.company_name)
+            .filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+          setMasterCompanies(Array.from(new Set(comps)));
+        }
+      } catch (err) {
+        console.error('Error fetching company names from master:', err);
+      }
+    };
+
+    fetchMasterCompanies();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -827,6 +881,12 @@ const EditPwpModal: React.FC<EditPwpModalProps> = ({
     let fileUrl = reportData.file_url || '';
 
     try {
+      if (companyName.trim()) {
+        const exists = masterCompanies.some((c) => c.toLowerCase() === companyName.trim().toLowerCase());
+        if (!exists) {
+          await supabase.from('master').insert([{ company_name: companyName.trim() }]);
+        }
+      }
       if (file) {
         const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
         const filePath = `test_reports/pv_water_pumping/${Date.now()}_${cleanFileName}`;
@@ -913,12 +973,19 @@ const EditPwpModal: React.FC<EditPwpModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name *</label>
               <input
+                list="edit-pwp-company-list"
                 type="text"
                 required
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="Select or enter company name"
               />
+              <datalist id="edit-pwp-company-list">
+                {masterCompanies.map((company, index) => (
+                  <option key={index} value={company} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Module Manufacture</label>
