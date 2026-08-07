@@ -20,11 +20,15 @@ export interface DocumentItem {
   status: string;
   rowIndex?: number; // Row index in Google Sheet (1-based or 0-based depending on usage)
   planned1?: string; // Column K from Google Sheet
+  plannedDate?: string;
   actual1?: string; // Column L from Google Sheet
   issueDate?: string; // Column M
   concernPersonName?: string; // Column N
   concernPersonMobile?: string; // Column O
   concernPersonDepartment?: string; // Column P
+  timestamp?: string;
+  createdAt?: string;
+  isDeleted?: boolean;
   // Note: companyBranch is stored in column Q
 }
 
@@ -145,6 +149,14 @@ export interface RenewalItem {
   concernPersonName?: string;
   concernPersonMobile?: string;
   concernPersonDepartment?: string;
+  pName?: string;
+  plannedDate?: string;
+  actual1?: string;
+  isDeleted?: boolean;
+  timestamp?: string;
+  createdAt?: string;
+  needsRenewal?: boolean;
+  renewalDate?: string;
 }
 
 export interface SubscriptionRenewalItem {

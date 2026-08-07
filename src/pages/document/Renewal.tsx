@@ -72,12 +72,18 @@ const DocumentRenewal = () => {
                     category: doc.category || '',
                     companyName: doc.company_name || '',
                     pName: doc.name || '',
-                    needsRenewal: doc.need_renewal || false,
+                    needsRenewal: doc.need_renewal ?? false,
                     renewalDate: doc.renewal_date || undefined,
                     file: doc.image || null,
                     fileContent: doc.image || '',
-                    date: doc.created_at || '',
+                    date: doc.created_at || doc.timestamp || '',
+                    timestamp: doc.timestamp || undefined,
+                    createdAt: doc.created_at || undefined,
                     status: doc.is_deleted ? 'Deleted' : 'Active',
+                    isDeleted: doc.is_deleted ?? false,
+                    plannedDate: doc.planned_date || undefined,
+                    planned1: doc.planned_date || undefined,
+                    actual1: doc.actual_1 || undefined,
                     issueDate: doc.issue_date || undefined,
                     concernPersonName: doc.concern_person_name || undefined,
                     concernPersonMobile: doc.concern_person_mobile || undefined,
@@ -115,11 +121,19 @@ const DocumentRenewal = () => {
                         documentType: matchingDoc.documentType,
                         category: matchingDoc.category,
                         companyName: matchingDoc.companyName,
+                        pName: matchingDoc.pName,
                         documentId: matchingDoc.id,
                         issueDate: matchingDoc.issueDate,
                         concernPersonName: matchingDoc.concernPersonName,
                         concernPersonMobile: matchingDoc.concernPersonMobile,
-                        concernPersonDepartment: matchingDoc.concernPersonDepartment
+                        concernPersonDepartment: matchingDoc.concernPersonDepartment,
+                        plannedDate: matchingDoc.plannedDate,
+                        actual1: matchingDoc.actual1,
+                        isDeleted: matchingDoc.isDeleted,
+                        timestamp: matchingDoc.timestamp,
+                        createdAt: matchingDoc.createdAt,
+                        needsRenewal: matchingDoc.needsRenewal,
+                        renewalDate: matchingDoc.renewalDate,
                     };
                 }
                 return historyItem;
@@ -180,12 +194,23 @@ const DocumentRenewal = () => {
     }).filter(doc =>
         doc.documentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (doc.pName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (doc.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (doc.documentType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (doc.concernPersonName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (doc.concernPersonMobile || '').includes(searchTerm) ||
+        (doc.concernPersonDepartment || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         doc.sn.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const filteredHistory = historyDocuments.filter(item =>
         (item.documentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.companyName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.pName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.documentType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.concernPersonName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.concernPersonMobile || '').includes(searchTerm) ||
         (item.sn || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -558,25 +583,28 @@ const DocumentRenewal = () => {
                         <table className="w-full text-left border-collapse">
                             <thead className="sticky top-0 z-20 bg-gray-50 shadow-sm">
                                 <tr className="border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
-                                    <th className="p-3 text-center bg-gray-50">Action</th>
+                                    <th className="p-3 text-center bg-gray-50 whitespace-nowrap">Action</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Serial No</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Document Name</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Document Type</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Category</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Name</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Need Renewal</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Renewal Date</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Image</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Is Deleted</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Issue Date</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Name</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Mobile</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Dept</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Entry Date</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Renewal</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Document File</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Person Name</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Person Mobile</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Person Dept</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Company Name</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Created At</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 text-sm">
                                 {pendingDocuments.length > 0 ? pendingDocuments.map((doc) => (
                                     <tr key={doc.id} className="hover:bg-gray-50/80 transition-colors">
-                                        <td className="p-3 text-center">
+                                        <td className="p-3 text-center whitespace-nowrap">
                                             <button
                                                 onClick={() => handleOpenRenewal(doc)}
                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
@@ -585,24 +613,26 @@ const DocumentRenewal = () => {
                                                 Renewal
                                             </button>
                                         </td>
-                                        <td className="p-3 font-bold font-mono text-xs text-gray-700">{doc.sn}</td>
-                                        <td className="p-3 font-medium text-gray-900">{doc.documentName}</td>
-                                        <td className="p-3 text-gray-600">{doc.documentType}</td>
-                                        <td className="p-3">
+                                        <td className="p-3 font-bold font-mono text-xs text-gray-700 whitespace-nowrap">{doc.sn}</td>
+                                        <td className="p-3 font-medium text-gray-900 whitespace-nowrap">{doc.documentName}</td>
+                                        <td className="p-3 text-gray-600 whitespace-nowrap">{doc.documentType}</td>
+                                        <td className="p-3 whitespace-nowrap">
                                             <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
                                                 {doc.category}
                                             </span>
                                         </td>
-                                        <td className="p-3 text-gray-900">{doc.companyName}</td>
-                                        <td className="p-3 text-gray-500 font-mono text-xs">{formatDate(doc.issueDate)}</td>
-                                        <td className="p-3 text-gray-500 text-xs">{doc.concernPersonName || '-'}</td>
-                                        <td className="p-3 text-gray-500 text-xs">{doc.concernPersonMobile || '-'}</td>
-                                        <td className="p-3 text-gray-500 text-xs">{doc.concernPersonDepartment || '-'}</td>
-                                        <td className="p-3 text-gray-500 font-mono text-xs">{formatDate(doc.date)}</td>
-                                        <td className="p-3 text-amber-600 font-semibold font-mono text-xs">
-                                            {doc.planned1 ? formatDate(doc.planned1) : (doc.renewalDate ? formatDate(doc.renewalDate) : 'Pending')}
+                                        <td className="p-3 text-gray-900 whitespace-nowrap">{doc.pName || '-'}</td>
+                                        <td className="p-3 text-center whitespace-nowrap">
+                                            {doc.needsRenewal ? (
+                                                <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-semibold border border-green-100">Yes</span>
+                                            ) : (
+                                                <span className="px-2 py-0.5 bg-gray-50 text-gray-500 rounded text-xs font-semibold border border-gray-100">No</span>
+                                            )}
                                         </td>
-                                        <td className="p-3">
+                                        <td className="p-3 text-amber-600 font-semibold font-mono text-xs whitespace-nowrap">
+                                            {formatDate(doc.renewalDate)}
+                                        </td>
+                                        <td className="p-3 whitespace-nowrap">
                                             {doc.fileContent ? (
                                                 <span
                                                     onClick={() => handleDownload(doc.fileContent, doc.file || 'document')}
@@ -614,10 +644,23 @@ const DocumentRenewal = () => {
                                                 <span className="text-gray-400">-</span>
                                             )}
                                         </td>
+                                        <td className="p-3 text-center whitespace-nowrap">
+                                            {doc.isDeleted ? (
+                                                <span className="px-2 py-0.5 bg-red-50 text-red-700 rounded text-xs font-semibold border border-red-100">Yes</span>
+                                            ) : (
+                                                <span className="px-2 py-0.5 bg-gray-50 text-gray-500 rounded text-xs font-semibold border border-gray-100">No</span>
+                                            )}
+                                        </td>
+                                        <td className="p-3 text-gray-500 font-mono text-xs whitespace-nowrap">{formatDate(doc.issueDate)}</td>
+                                        <td className="p-3 text-gray-500 text-xs whitespace-nowrap">{doc.concernPersonName || '-'}</td>
+                                        <td className="p-3 text-gray-500 text-xs font-mono whitespace-nowrap">{doc.concernPersonMobile || '-'}</td>
+                                        <td className="p-3 text-gray-500 text-xs whitespace-nowrap">{doc.concernPersonDepartment || '-'}</td>
+                                        <td className="p-3 text-gray-900 whitespace-nowrap">{doc.companyName || '-'}</td>
+                                        <td className="p-3 text-gray-500 font-mono text-xs whitespace-nowrap">{formatDate(doc.createdAt || doc.date)}</td>
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={13} className="p-12 text-center text-gray-500">
+                                        <td colSpan={16} className="p-12 text-center text-gray-500">
                                             <p>No pending document renewals found</p>
                                         </td>
                                     </tr>
@@ -637,13 +680,18 @@ const DocumentRenewal = () => {
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Document Type</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Category</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Name</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Need Renewal</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Renewal Date</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Image</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Is Deleted</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Issue Date</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Name</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Mobile</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Dept</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Entry Date</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Renewal</th>
-                                    <th className="p-3 whitespace-nowrap bg-gray-50">Document File</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Person Name</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Person Mobile</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Concern Person Dept</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Company Name</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Created At</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Old Renewal Date</th>
+                                    <th className="p-3 whitespace-nowrap bg-gray-50">Old Document File</th>
                                     <th className="p-3 whitespace-nowrap text-center bg-gray-50">Renewal Status</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">Next Renewal Date</th>
                                     <th className="p-3 whitespace-nowrap bg-gray-50">New Document File</th>
@@ -652,24 +700,26 @@ const DocumentRenewal = () => {
                             <tbody className="divide-y divide-gray-50 text-sm">
                                 {filteredHistory.length > 0 ? filteredHistory.map((item) => (
                                     <tr key={item.id} className="hover:bg-gray-50/80 transition-colors">
-                                        <td className="p-3 font-bold font-mono text-xs text-gray-700">{item.sn}</td>
-                                        <td className="p-3 font-medium text-gray-900">{item.documentName}</td>
-                                        <td className="p-3 text-gray-600">{item.documentType}</td>
-                                        <td className="p-3">
+                                        <td className="p-3 font-bold font-mono text-xs text-gray-700 whitespace-nowrap">{item.sn}</td>
+                                        <td className="p-3 font-medium text-gray-900 whitespace-nowrap">{item.documentName}</td>
+                                        <td className="p-3 text-gray-600 whitespace-nowrap">{item.documentType}</td>
+                                        <td className="p-3 whitespace-nowrap">
                                             <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
                                                 {item.category}
                                             </span>
                                         </td>
-                                        <td className="p-3 text-gray-900">{item.companyName}</td>
-                                        <td className="p-3 text-gray-500 font-mono text-xs">{formatDate(item.issueDate)}</td>
-                                        <td className="p-3 text-gray-500 text-xs">{item.concernPersonName || '-'}</td>
-                                        <td className="p-3 text-gray-500 text-xs">{item.concernPersonMobile || '-'}</td>
-                                        <td className="p-3 text-gray-500 text-xs">{item.concernPersonDepartment || '-'}</td>
-                                        <td className="p-3 text-gray-500 font-mono text-xs">{formatDate(item.entryDate)}</td>
-                                        <td className="p-3 text-gray-500 font-mono text-xs line-through decoration-red-400">
-                                            {formatDate(item.oldRenewalDate)}
+                                        <td className="p-3 text-gray-900 whitespace-nowrap">{item.pName || '-'}</td>
+                                        <td className="p-3 text-center whitespace-nowrap">
+                                            {item.needsRenewal !== undefined ? (
+                                                item.needsRenewal ? (
+                                                    <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-semibold border border-green-100">Yes</span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 bg-gray-50 text-gray-500 rounded text-xs font-semibold border border-gray-100">No</span>
+                                                )
+                                            ) : '-'}
                                         </td>
-                                        <td className="p-3 text-gray-500">
+                                        <td className="p-3 text-gray-500 font-mono text-xs whitespace-nowrap">{formatDate(item.renewalDate)}</td>
+                                        <td className="p-3 whitespace-nowrap">
                                             {item.oldFileContent ? (
                                                 <div
                                                     onClick={() => handleDownload(item.oldFileContent, item.oldFile)}
@@ -680,7 +730,36 @@ const DocumentRenewal = () => {
                                                 </div>
                                             ) : '-'}
                                         </td>
-                                        <td className="p-3 text-center">
+                                        <td className="p-3 text-center whitespace-nowrap">
+                                            {item.isDeleted !== undefined ? (
+                                                item.isDeleted ? (
+                                                    <span className="px-2 py-0.5 bg-red-50 text-red-700 rounded text-xs font-semibold border border-red-100">Yes</span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 bg-gray-50 text-gray-500 rounded text-xs font-semibold border border-gray-100">No</span>
+                                                )
+                                            ) : '-'}
+                                        </td>
+                                        <td className="p-3 text-gray-500 font-mono text-xs whitespace-nowrap">{formatDate(item.issueDate)}</td>
+                                        <td className="p-3 text-gray-500 text-xs whitespace-nowrap">{item.concernPersonName || '-'}</td>
+                                        <td className="p-3 text-gray-500 text-xs font-mono whitespace-nowrap">{item.concernPersonMobile || '-'}</td>
+                                        <td className="p-3 text-gray-500 text-xs whitespace-nowrap">{item.concernPersonDepartment || '-'}</td>
+                                        <td className="p-3 text-gray-900 whitespace-nowrap">{item.companyName || '-'}</td>
+                                        <td className="p-3 text-gray-500 font-mono text-xs whitespace-nowrap">{formatDate(item.createdAt || item.entryDate)}</td>
+                                        <td className="p-3 text-gray-500 font-mono text-xs line-through decoration-red-400 whitespace-nowrap">
+                                            {formatDate(item.oldRenewalDate)}
+                                        </td>
+                                        <td className="p-3 text-gray-500 whitespace-nowrap">
+                                            {item.oldFileContent ? (
+                                                <div
+                                                    onClick={() => handleDownload(item.oldFileContent, item.oldFile)}
+                                                    className="flex items-center gap-1 text-gray-600 text-xs cursor-pointer hover:text-indigo-600 hover:underline"
+                                                >
+                                                    <Download size={12} />
+                                                    <span className="truncate max-w-[100px]">View</span>
+                                                </div>
+                                            ) : '-'}
+                                        </td>
+                                        <td className="p-3 text-center whitespace-nowrap">
                                             {item.renewalStatus === 'Yes' ? (
                                                 <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-green-100">
                                                     <Check size={12} /> Yes
@@ -691,10 +770,10 @@ const DocumentRenewal = () => {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="p-3 font-medium text-indigo-600 font-mono text-xs">
+                                        <td className="p-3 font-medium text-indigo-600 font-mono text-xs whitespace-nowrap">
                                             {formatDate(item.nextRenewalDate)}
                                         </td>
-                                        <td className="p-3">
+                                        <td className="p-3 whitespace-nowrap">
                                             {item.newFileContent ? (
                                                 <span
                                                     onClick={() => handleDownload(item.newFileContent, item.newFile)}
@@ -709,7 +788,7 @@ const DocumentRenewal = () => {
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={15} className="p-12 text-center text-gray-500">
+                                        <td colSpan={20} className="p-12 text-center text-gray-500">
                                             <p>No renewal history available</p>
                                         </td>
                                     </tr>

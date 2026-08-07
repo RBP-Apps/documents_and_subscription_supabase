@@ -335,81 +335,95 @@ const HealthRenewal = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
+          
+
             {activeTab === 'pending' && (
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
-                  <tr>
-                    <th className="p-4 text-center">Action</th>
-                    <th className="p-4">Serial No</th>
-                    <th className="p-4">Company Name</th>
-                    <th className="p-4">Plan Name</th>
-                    <th className="p-4">Policy Holder</th>
-                    <th className="p-4">Policy No</th>
-                    <th className="p-4">Persons Covered</th>
-                    <th className="p-4">End Date</th>
-                    <th className="p-4">Renewal Date</th>
-                    <th className="p-4">CONCERN PERSON</th>
-                    <th className="p-4">CONCERN MOBILE</th>
-                    <th className="p-4">CONCERN DEPT</th>
-                    <th className="p-4">Document</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 text-sm">
-                  {pendingFiltered.length > 0 ? (
-                    pendingFiltered.map((item) => (
-                      <tr key={item.id} className="hover:bg-gray-50/80 transition-colors">
-                        <td className="p-4 text-center">
-                          <button
-                            onClick={() => handleOpenRenewal(item)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                          >
-                            <RotateCcw size={14} />
-                            Renewal
-                          </button>
-                        </td>
-                        <td className="p-4 font-semibold text-indigo-600">{item.serial_no}</td>
-                        <td className="p-4 font-medium text-gray-900">{item.company_name}</td>
-                        <td className="p-4 text-gray-600">{item.plan_name}</td>
-                        <td className="p-4 text-gray-600 font-medium">{item.policy_holder}</td>
-                        <td className="p-4 font-mono text-gray-500">{item.policy_no}</td>
-                        <td className="p-4 text-gray-500">{item.persons_covered}</td>
-                        <td className="p-4 text-gray-500">{formatDate(item.end_date)}</td>
-                        <td className="p-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                            {formatDate(item.renewal_date)}
-                          </span>
-                        </td>
-                        <td className="p-4 text-gray-600">{item.concern_person_name || '-'}</td>
-                        <td className="p-4 text-gray-600">{item.concern_person_mobile || '-'}</td>
-                        <td className="p-4 text-gray-500">{item.concern_person_department || '-'}</td>
-                        <td className="p-4">
-                          {item.document_url ? (
-                            <a
-                              href={item.document_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium"
-                            >
-                              <FileText size={14} />
-                              View Policy
-                            </a>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={13} className="text-center py-16 text-gray-400">
-                        <ShieldAlert className="mx-auto h-12 w-12 text-gray-300 mb-2" />
-                        No pending renewals found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            )}
+  <table className="w-full text-left border-collapse">
+    <thead className="bg-gray-50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold tracking-wider">
+      <tr>
+        <th className="p-4 text-center">Action</th>
+        <th className="p-4">Serial No</th>
+        <th className="p-4">Company Name</th>
+        <th className="p-4">Plan Name</th>
+        <th className="p-4">Policy Holder</th>
+        <th className="p-4">Policy No</th>
+        <th className="p-4">Persons Covered</th>
+        <th className="p-4">Policy Cover</th>
+        <th className="p-4">Start Date</th>
+        <th className="p-4">End Date</th>
+        <th className="p-4">Premium Paid</th>
+        <th className="p-4">Insurance Agent</th>
+        <th className="p-4">Contact Details</th>
+        <th className="p-4">Renewal Date</th>
+        <th className="p-4">Concern Person</th>
+        <th className="p-4">Concern Mobile</th>
+        <th className="p-4">Concern Dept</th>
+        <th className="p-4">Document</th>
+        <th className="p-4">Created At</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-gray-100 text-sm">
+      {pendingFiltered.length > 0 ? (
+        pendingFiltered.map((item) => (
+          <tr key={item.id} className="hover:bg-gray-50/80 transition-colors">
+            <td className="p-4 text-center">
+              <button
+                onClick={() => handleOpenRenewal(item)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+              >
+                <RotateCcw size={14} />
+                Renewal
+              </button>
+            </td>
+            <td className="p-4 font-semibold text-indigo-600">{item.serial_no}</td>
+            <td className="p-4 font-medium text-gray-900">{item.company_name}</td>
+            <td className="p-4 text-gray-600">{item.plan_name}</td>
+            <td className="p-4 text-gray-600 font-medium">{item.policy_holder}</td>
+            <td className="p-4 font-mono text-gray-500">{item.policy_no}</td>
+            <td className="p-4 text-gray-500">{item.persons_covered}</td>
+            <td className="p-4 text-gray-500">{item.policy_cover?.toLocaleString()}</td>
+            <td className="p-4 text-gray-500">{formatDate(item.start_date)}</td>
+            <td className="p-4 text-gray-500">{formatDate(item.end_date)}</td>
+            <td className="p-4 text-gray-500">{item.premium_paid?.toLocaleString()}</td>
+            <td className="p-4 text-gray-600">{item.insurance_agent || '-'}</td>
+            <td className="p-4 text-gray-600">{item.contact_details || '-'}</td>
+            <td className="p-4">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                {formatDate(item.renewal_date)}
+              </span>
+            </td>
+            <td className="p-4 text-gray-600">{item.concern_person_name || '-'}</td>
+            <td className="p-4 text-gray-600">{item.concern_person_mobile || '-'}</td>
+            <td className="p-4 text-gray-500">{item.concern_person_department || '-'}</td>
+            <td className="p-4">
+              {item.document_url ? (
+                <a
+                  href={item.document_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  <FileText size={14} />
+                  View
+                </a>
+              ) : (
+                <span className="text-gray-400">-</span>
+              )}
+            </td>
+            <td className="p-4 text-xs text-gray-400">{formatDate(item.created_at)}</td>
+          </tr>
+        ))
+      ) : (
+        <tr>
+          <td colSpan={19} className="text-center py-16 text-gray-400">
+            <ShieldAlert className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+            No pending renewals found
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+)}
 
             {activeTab === 'history' && (
               <table className="w-full text-left border-collapse">
