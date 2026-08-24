@@ -265,7 +265,6 @@ const PumpExperience = () => {
                   <th className="px-6 py-4">ISSUE DATE</th>
                   <th className="px-6 py-4">WORK NAME</th>
                   <th className="px-6 py-4">PUMP CAPACITY</th>
-                  <th className="px-6 py-4">VALUE (₹)</th>
                   <th className="px-6 py-4">COMPANY NAME</th>
                   <th className="px-6 py-4">SCHEME</th>
                   <th className="px-6 py-4">DEPARTMENT</th>
@@ -329,9 +328,6 @@ const PumpExperience = () => {
                     </td>
                     <td className="px-6 py-4 text-gray-600">{item.work_name}</td>
                     <td className="px-6 py-4 text-gray-600">{item.pump_capacity}</td>
-                    <td className="px-6 py-4 text-gray-600 font-semibold">
-                      {item.value ? Number(item.value).toLocaleString('en-IN') : '-'}
-                    </td>
                     <td className="px-6 py-4 text-gray-600">{item.company_name || '-'}</td>
                     <td className="px-6 py-4 text-gray-600">{item.scheme || '-'}</td>
                     <td className="px-6 py-4 text-gray-600">{item.department || '-'}</td>
@@ -341,7 +337,7 @@ const PumpExperience = () => {
 
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={14} className="text-center py-12 text-gray-500">
+                    <td colSpan={13} className="text-center py-12 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <Award size={48} className="text-gray-300" />
                         <p>No Pump Experience Certificate Records Found</p>
@@ -663,16 +659,6 @@ const AddCertificateModal: React.FC<AddCertificateModalProps> = ({
                 placeholder="e.g. Submersible 12.5 HP"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Value (₹)</label>
-              <input
-                type="number"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. 1500000"
-              />
-            </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Company Name</label>
@@ -960,15 +946,6 @@ const EditCertificateModal: React.FC<EditCertificateModalProps> = ({
                 type="text"
                 value={pumpCapacity}
                 onChange={(e) => setPumpCapacity(e.target.value)}
-                className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Value (₹)</label>
-              <input
-                type="number"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
                 className="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>

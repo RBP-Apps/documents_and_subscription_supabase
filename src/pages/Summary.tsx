@@ -2513,7 +2513,7 @@ const Summary = () => {
                           {reportData.documents.map((doc, idx) => (
                             <tr key={idx}>
                               <td className="p-2 font-mono font-bold text-indigo-600">{doc.sn}</td>
-                              <td className="p-2 font-medium text-gray-900 truncate max-w-[150px]">{doc.name}</td>
+                              <td className="p-2 font-medium text-gray-900 break-words whitespace-normal max-w-[220px]">{doc.name}</td>
                               <td className="p-2 text-gray-500">{doc.category}</td>
                               <td className="p-2 text-center">
                                 <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
