@@ -17,6 +17,7 @@ import AddDocument from "./AddDocument";
 import EditDocument from "./EditDocument";
 import ShareModal from "./ShareModal";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import SearchableFilterSelect from "../../components/SearchableFilterSelect";
 import { formatDate } from "../../utils/dateFormatter";
 import supabase from "../../utils/supabase";
 import { toast } from "react-hot-toast";
@@ -241,6 +242,10 @@ const AllDocuments = () => {
 
   const uniqueConcernPersonNames = Array.from(
     new Set(documents.map((d) => d.concernPersonName).filter(Boolean))
+  ).sort();
+
+  const uniqueCategories = Array.from(
+    new Set(documents.map((d) => d.category).filter(Boolean))
   ).sort();
 
   const filteredData = documents
@@ -563,68 +568,51 @@ const AllDocuments = () => {
 
         {/* Dropdown Filters */}
         <div className="bg-white p-4 rounded-xl shadow-input space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Document Name
-              </label>
-              <select
-                value={selectedDocumentName}
-                onChange={(e) => setSelectedDocumentName(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              >
-                <option value="">All Document Names</option>
-                {uniqueDocumentNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <SearchableFilterSelect
+              label="Document Name"
+              value={selectedDocumentName}
+              onChange={setSelectedDocumentName}
+              options={uniqueDocumentNames}
+              placeholder="All Document Names"
+              searchPlaceholder="Search document name..."
+            />
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Company Name
-              </label>
-              <select
-                value={selectedCompanyName}
-                onChange={(e) => setSelectedCompanyName(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              >
-                <option value="">All Companies</option>
-                {uniqueCompanyNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SearchableFilterSelect
+              label="Company Name"
+              value={selectedCompanyName}
+              onChange={setSelectedCompanyName}
+              options={uniqueCompanyNames}
+              placeholder="All Companies"
+              searchPlaceholder="Search company..."
+            />
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Concern Person Name
-              </label>
-              <select
-                value={selectedConcernPersonName}
-                onChange={(e) => setSelectedConcernPersonName(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              >
-                <option value="">All Concern Persons</option>
-                {uniqueConcernPersonNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SearchableFilterSelect
+              label="Concern Person Name"
+              value={selectedConcernPersonName}
+              onChange={setSelectedConcernPersonName}
+              options={uniqueConcernPersonNames}
+              placeholder="All Concern Persons"
+              searchPlaceholder="Search concern person..."
+            />
+
+            <SearchableFilterSelect
+              label="Category"
+              value={filterCategory}
+              onChange={setFilterCategory}
+              options={uniqueCategories}
+              placeholder="All Categories"
+              searchPlaceholder="Search category..."
+            />
           </div>
-          {(selectedDocumentName || selectedCompanyName || selectedConcernPersonName || searchTerm) && (
+          {(selectedDocumentName || selectedCompanyName || selectedConcernPersonName || filterCategory || searchTerm) && (
             <div className="flex justify-end pt-1">
               <button
                 onClick={() => {
                   setSelectedDocumentName("");
                   setSelectedCompanyName("");
                   setSelectedConcernPersonName("");
+                  setFilterCategory("");
                   setSearchTerm("");
                 }}
                 className="text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition"
