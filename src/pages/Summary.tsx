@@ -180,6 +180,7 @@ const Summary = () => {
   const reportRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const moduleDropdownRef = useRef<HTMLDivElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   // Raw fetched lists (cached per company to avoid duplicate API requests)
   const [cachedCompany, setCachedCompany] = useState('');
@@ -208,7 +209,7 @@ const Summary = () => {
   const [rawHealthRenewals, setRawHealthRenewals] = useState<any[]>([]);
   const [rawLifeRenewals, setRawLifeRenewals] = useState<any[]>([]);
 
-  // 10 Filter States
+  // 11 Filter States
   const [companies, setCompanies] = useState<string[]>([]);
   const [moduleCompaniesMap, setModuleCompaniesMap] = useState<Record<string, string[]>>({});
   const [selectedCompany, setSelectedCompany] = useState('');
@@ -218,6 +219,11 @@ const Summary = () => {
   const [moduleFilter, setModuleFilter] = useState('all');
   const [isModuleDropdownOpen, setIsModuleDropdownOpen] = useState(false);
   const [moduleSearchQuery, setModuleSearchQuery] = useState('');
+
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
   const [dateRange, setDateRange] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -241,6 +247,10 @@ const Summary = () => {
     opt.label.toLowerCase().includes(moduleSearchQuery.toLowerCase())
   );
 
+  const filteredCategoryOptions = availableCategories.filter((cat) =>
+    cat.toLowerCase().includes(categorySearchQuery.toLowerCase())
+  );
+
   useEffect(() => {
     setTitle('Executive MIS Summary');
     loadCompanyList();
@@ -253,6 +263,9 @@ const Summary = () => {
       }
       if (moduleDropdownRef.current && !moduleDropdownRef.current.contains(event.target as Node)) {
         setIsModuleDropdownOpen(false);
+      }
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setIsCategoryDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -267,7 +280,7 @@ const Summary = () => {
         docsRes, subsRes, vehRes, healthRes, lifeRes, fireRes, empRes, bgRes,
         woRes, tndRes, spvRes, pvWaterRes, pvModRes, pumpRes, pannelRes, hlsRes, expRes, loanRes, masterRes
       ] = await Promise.all([
-        safeQuery(supabase.from('Add New Document').select('company_name').eq('is_deleted', false)),
+        safeQuery(supabase.from('Add New Document').select('company_name, category').eq('is_deleted', false)),
         safeQuery(supabase.from('create_subscription').select('company_name')),
         safeQuery(supabase.from('vehicle_insurance').select('company_name')),
         safeQuery(supabase.from('health_insurance').select('company_name')),
@@ -300,6 +313,7 @@ const Summary = () => {
       };
 
       const docsCompanies = extractNames(docsRes.data, 'company_name');
+      const docsCategories = extractNames(docsRes.data, 'category');
       const subsCompanies = extractNames(subsRes.data, 'company_name');
       const vehCompanies = extractNames(vehRes.data, 'company_name');
       const healthCompanies = extractNames(healthRes.data, 'company_name');
@@ -365,6 +379,9 @@ const Summary = () => {
 
       setCompanies(Array.from(allSet).sort());
       setModuleCompaniesMap(map);
+      if (docsCategories.size > 0) {
+        setAvailableCategories(Array.from(docsCategories).sort());
+      }
     } catch (error) {
       console.error('Error fetching companies:', error);
       toast.error('Failed to load company list');
@@ -379,6 +396,7 @@ const Summary = () => {
     if (selectedCompany) count++;
     if (dateRange !== 'all') count++;
     if (moduleFilter !== 'all') count++;
+    if (categoryFilter !== 'all') count++;
     if (statusFilter !== 'all') count++;
     if (priorityFilter !== 'all') count++;
     if (renewalFilter !== 'all') count++;
@@ -395,6 +413,7 @@ const Summary = () => {
     setCustomStartDate('');
     setCustomEndDate('');
     setModuleFilter('all');
+    setCategoryFilter('all');
     setStatusFilter('all');
     setPriorityFilter('all');
     setRenewalFilter('all');
@@ -916,8 +935,19 @@ const Summary = () => {
         });
       });
 
-      // Apply the 10 MIS filters dynamically on the unified dataset
+      // Apply the 11 MIS filters dynamically on the unified dataset
       let filteredItems = allUnifiedItems;
+
+      // Dynamically extract categories from current unified items
+      const dynamicCats = new Set<string>();
+      allUnifiedItems.forEach(item => {
+        if (item.category && item.category !== 'N/A' && item.category.trim()) {
+          dynamicCats.add(item.category.trim());
+        }
+      });
+      if (dynamicCats.size > 0) {
+        setAvailableCategories(prev => Array.from(new Set([...prev, ...Array.from(dynamicCats)])).sort());
+      }
 
       // Filter 9: Date Range Filter
       if (dateRange !== 'all') {
@@ -972,6 +1002,13 @@ const Summary = () => {
             item.category.toLowerCase().replace(/[^a-z0-9]/g, '').includes(moduleFilter.toLowerCase().replace(/[^a-z0-9]/g, ''))
           );
         }
+      }
+
+      // Filter: Category Filter
+      if (categoryFilter !== 'all' && categoryFilter.trim()) {
+        filteredItems = filteredItems.filter(item => 
+          item.category.toLowerCase().trim() === categoryFilter.toLowerCase().trim()
+        );
       }
 
       // Filter 2: Status Filter
@@ -1262,7 +1299,10 @@ const Summary = () => {
         companyName: selectedCompany,
         generatedAt: new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
         generatedBy: 'System Administrator',
-        reportTypeLabel: moduleFilter === 'all' ? 'Full Executive Summary' : `${moduleFilter.toUpperCase()} Module Summary`,
+        reportTypeLabel: [
+          moduleFilter === 'all' ? 'Full Executive Summary' : `${moduleFilter.toUpperCase()} Module Summary`,
+          categoryFilter !== 'all' ? `Category: ${categoryFilter}` : null
+        ].filter(Boolean).join(' | '),
         dateRangeLabel: dateRangeLabelMap[dateRange] || 'All Time',
 
         totalRecords,
@@ -1661,7 +1701,7 @@ const Summary = () => {
           <Filter size={12} /> Dashboard Filter Configuration
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           
           {/* 1. Module Search Dropdown (Search + Dropdown) */}
           <div className="relative" ref={moduleDropdownRef}>
@@ -1766,6 +1806,71 @@ const Summary = () => {
                     ))
                   ) : (
                     <div className="p-3 text-center text-[10px] text-gray-400">No companies matched</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 3. Category Search Dropdown */}
+          <div className="relative" ref={categoryDropdownRef}>
+            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Category Filter</label>
+            <button
+              onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+              className="w-full px-3 py-2 text-left border border-gray-200 rounded-xl bg-white shadow-sm flex justify-between items-center text-xs text-gray-700 hover:border-gray-300 focus:outline-none transition-all"
+            >
+              <span className="truncate font-semibold font-sans">
+                {categoryFilter === 'all' ? 'All Categories' : categoryFilter}
+              </span>
+              <ChevronDown size={14} className={`text-gray-400 transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isCategoryDropdownOpen && (
+              <div className="absolute z-50 w-64 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl max-h-64 flex flex-col overflow-hidden animate-scale-in">
+                <div className="p-2 border-b border-gray-50 bg-gray-50/50 flex items-center gap-1.5">
+                  <Search size={12} className="text-gray-400" />
+                  <input
+                    type="text"
+                    value={categorySearchQuery}
+                    onChange={(e) => setCategorySearchQuery(e.target.value)}
+                    placeholder="Search category..."
+                    className="w-full text-[11px] outline-none border-none bg-transparent text-gray-700"
+                    autoFocus
+                  />
+                </div>
+                <div className="overflow-y-auto flex-1 py-1 max-h-48 no-scrollbar">
+                  <button
+                    onClick={() => {
+                      setCategoryFilter('all');
+                      setIsCategoryDropdownOpen(false);
+                      setCategorySearchQuery('');
+                    }}
+                    className={`w-full text-left px-3 py-2 text-[11px] hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${
+                      categoryFilter === 'all' ? 'text-indigo-600 font-semibold bg-indigo-50/20' : 'text-gray-700'
+                    }`}
+                  >
+                    <span className="truncate">All Categories</span>
+                    {categoryFilter === 'all' && <Check size={12} className="text-indigo-600" />}
+                  </button>
+                  {filteredCategoryOptions.length > 0 ? (
+                    filteredCategoryOptions.map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => {
+                          setCategoryFilter(opt);
+                          setIsCategoryDropdownOpen(false);
+                          setCategorySearchQuery('');
+                        }}
+                        className={`w-full text-left px-3 py-2 text-[11px] hover:bg-indigo-50/50 flex items-center justify-between transition-colors ${
+                          categoryFilter === opt ? 'text-indigo-600 font-semibold bg-indigo-50/20' : 'text-gray-700'
+                        }`}
+                      >
+                        <span className="truncate">{opt}</span>
+                        {categoryFilter === opt && <Check size={12} className="text-indigo-600" />}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="p-3 text-center text-[10px] text-gray-400">No categories matched</div>
                   )}
                 </div>
               </div>
@@ -1945,6 +2050,12 @@ const Summary = () => {
               <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-gray-50 text-gray-700 px-2.5 py-1 rounded-full border">
                 Module: {moduleFilter}
                 <X size={10} className="cursor-pointer" onClick={() => setModuleFilter('all')} />
+              </span>
+            )}
+            {categoryFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-gray-50 text-gray-700 px-2.5 py-1 rounded-full border">
+                Category: {categoryFilter}
+                <X size={10} className="cursor-pointer" onClick={() => setCategoryFilter('all')} />
               </span>
             )}
             {statusFilter !== 'all' && (
@@ -2488,47 +2599,71 @@ const Summary = () => {
                     <span className="text-[10px] text-gray-400 font-mono">Scope: {reportData.dateRangeLabel}</span>
                   </div>
 
-                  {/* Documents Section */}
+                  {/* Documents Section Grouped by Category */}
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700">Documents Summary Table</h3>
+                    <div className="flex justify-between items-center border-b pb-1.5">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
+                        Documents Summary (Category Sections)
+                      </h3>
                       <span className="text-[9px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-bold">
                         Active: {reportData.docsActive} | Expired: {reportData.docsExpired}
                       </span>
                     </div>
                     {reportData.documents.length > 0 ? (
-                      <table className="w-full text-left border-collapse text-[10px]">
-                        <thead>
-                          <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase">
-                            <th className="p-2">Serial</th>
-                            <th className="p-2">Document Name</th>
-                            <th className="p-2">Category</th>
-                            <th className="p-2 text-center">Status</th>
-                            <th className="p-2 text-center">Expiry/Renewal Date</th>
-                            <th className="p-2 text-center w-12 font-medium">Shared</th>
-                            <th className="p-2 text-center w-12 font-medium">Renewed</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {reportData.documents.map((doc, idx) => (
-                            <tr key={idx}>
-                              <td className="p-2 font-mono font-bold text-indigo-600">{doc.sn}</td>
-                              <td className="p-2 font-medium text-gray-900 break-words whitespace-normal max-w-[220px]">{doc.name}</td>
-                              <td className="p-2 text-gray-500">{doc.category}</td>
-                              <td className="p-2 text-center">
-                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
-                                  doc.status === 'Expired' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
-                                }`}>
-                                  {doc.status}
-                                </span>
-                              </td>
-                              <td className="p-2 text-center font-medium">{doc.expiryDate ? formatDate(doc.expiryDate) : '-'}</td>
-                              <td className="p-2 text-center font-bold">{doc.shareCount}</td>
-                              <td className="p-2 text-center font-bold">{doc.renewalCount}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      (() => {
+                        const docsByCategory: Record<string, typeof reportData.documents> = {};
+                        reportData.documents.forEach(doc => {
+                          const cat = doc.category || 'Uncategorized';
+                          if (!docsByCategory[cat]) docsByCategory[cat] = [];
+                          docsByCategory[cat].push(doc);
+                        });
+                        return (
+                          <div className="space-y-3">
+                            {Object.entries(docsByCategory).map(([catName, catDocs]) => (
+                              <div key={catName} className="space-y-1.5 border border-indigo-100/60 rounded-lg p-2.5 bg-indigo-50/10">
+                                <div className="flex items-center justify-between bg-indigo-50/80 px-2.5 py-1 rounded text-indigo-950 border border-indigo-100">
+                                  <span className="text-[10px] font-bold uppercase tracking-wide">
+                                    Category: {catName}
+                                  </span>
+                                  <span className="text-[8px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-full border border-indigo-200">
+                                    {catDocs.length} {catDocs.length === 1 ? 'Document' : 'Documents'}
+                                  </span>
+                                </div>
+                                <table className="w-full text-left border-collapse text-[10px]">
+                                  <thead>
+                                    <tr className="bg-white border-b border-gray-100 text-gray-500 font-bold uppercase">
+                                      <th className="p-1.5">Serial</th>
+                                      <th className="p-1.5">Document Name</th>
+                                      <th className="p-1.5 text-center">Status</th>
+                                      <th className="p-1.5 text-center">Expiry/Renewal Date</th>
+                                      <th className="p-1.5 text-center w-12 font-medium">Shared</th>
+                                      <th className="p-1.5 text-center w-12 font-medium">Renewed</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100 bg-white">
+                                    {catDocs.map((doc, idx) => (
+                                      <tr key={idx}>
+                                        <td className="p-1.5 font-mono font-bold text-indigo-600">{doc.sn}</td>
+                                        <td className="p-1.5 font-medium text-gray-900 break-words whitespace-normal max-w-[220px]">{doc.name}</td>
+                                        <td className="p-1.5 text-center">
+                                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                                            doc.status === 'Expired' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                          }`}>
+                                            {doc.status}
+                                          </span>
+                                        </td>
+                                        <td className="p-1.5 text-center font-medium">{doc.expiryDate ? formatDate(doc.expiryDate) : '-'}</td>
+                                        <td className="p-1.5 text-center font-bold">{doc.shareCount}</td>
+                                        <td className="p-1.5 text-center font-bold">{doc.renewalCount}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()
                     ) : (
                       <div className="p-6 bg-gray-50 border border-dashed text-center text-xs text-gray-400 rounded-xl">
                         No Documents Available
