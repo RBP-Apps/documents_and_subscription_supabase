@@ -56,6 +56,9 @@ const AllLoans = () => {
                 remarks: item.remarks || '',
                 file: item.file || null,
                 fileContent: item.file || undefined,
+                sanctionLetter: item.sanction_letter || null,
+                repaymentLetter: item.repayment_letter || null,
+                soa: item.soa || null,
                 requestDate: item.request_date || '',
                 requesterName: item.request_name || '',
                 planned1: item.planned_1 || '',
@@ -197,7 +200,10 @@ const AllLoans = () => {
                                             <th className="px-4 py-4 border-b border-gray-100 whitespace-nowrap">Start Date</th>
                                             <th className="px-4 py-4 border-b border-gray-100 whitespace-nowrap">End Date</th>
                                             <th className="px-4 py-4 border-b border-gray-100">Document</th>
-                                            <th className="px-4 py-4 border-b border-gray-100 text-right">File</th>
+                                            <th className="px-4 py-4 border-b border-gray-100 text-center">Doc File</th>
+                                            <th className="px-4 py-4 border-b border-gray-100 text-center">Sanction Letter</th>
+                                            <th className="px-4 py-4 border-b border-gray-100 text-center">Repayment Letter</th>
+                                            <th className="px-4 py-4 border-b border-gray-100 text-center">SOA</th>
                                             <th className="px-4 py-4 border-b border-gray-100">Remarks</th>
                                         </tr>
                                     </thead>
@@ -238,17 +244,65 @@ const AllLoans = () => {
                                                 <td className="px-4 py-4 text-gray-500 text-xs whitespace-nowrap">{formatDate(item.startDate)}</td>
                                                 <td className="px-4 py-4 text-gray-500 text-xs whitespace-nowrap">{formatDate(item.endDate)}</td>
                                                 <td className="px-4 py-4 text-gray-600 text-xs">{item.providedDocument}</td>
-                                                <td className="px-4 py-4 text-right">
+                                                <td className="px-4 py-4 text-center">
                                                     {item.file ? (
                                                         <a
                                                             href={getFileUrl(item.fileContent)}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all duration-200 shadow-sm"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all duration-200 shadow-sm"
                                                             title={item.file}
                                                         >
-                                                            <FileText size={16} />
-                                                            <span className="text-[11px] font-bold hidden xl:inline">View</span>
+                                                            <FileText size={14} />
+                                                            <span className="text-[11px] font-bold">View</span>
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400 font-mono">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4 text-center">
+                                                    {item.sanctionLetter ? (
+                                                        <a
+                                                            href={getFileUrl(item.sanctionLetter)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white rounded-lg transition-all duration-200 shadow-sm"
+                                                            title="View Sanction Letter"
+                                                        >
+                                                            <FileText size={14} />
+                                                            <span className="text-[11px] font-bold">View</span>
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400 font-mono">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4 text-center">
+                                                    {item.repaymentLetter ? (
+                                                        <a
+                                                            href={getFileUrl(item.repaymentLetter)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white rounded-lg transition-all duration-200 shadow-sm"
+                                                            title="View Repayment Letter"
+                                                        >
+                                                            <FileText size={14} />
+                                                            <span className="text-[11px] font-bold">View</span>
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400 font-mono">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-4 text-center">
+                                                    {item.soa ? (
+                                                        <a
+                                                            href={getFileUrl(item.soa)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white rounded-lg transition-all duration-200 shadow-sm"
+                                                            title="View SOA"
+                                                        >
+                                                            <FileText size={14} />
+                                                            <span className="text-[11px] font-bold">View</span>
                                                         </a>
                                                     ) : (
                                                         <span className="text-gray-400 font-mono">-</span>
@@ -339,6 +393,58 @@ const AllLoans = () => {
                                                     <FileText size={16} />
                                                     <span>View File</span>
                                                 </a>
+                                            </div>
+                                        )}
+                                        {(item.sanctionLetter || item.repaymentLetter || item.soa) && (
+                                            <div className="pt-2 grid grid-cols-3 gap-2">
+                                                <div className="bg-gray-50 p-2 rounded-xl border border-gray-100 flex flex-col items-center text-center">
+                                                    <span className="text-[10px] text-gray-500 font-semibold mb-1">Sanction</span>
+                                                    {item.sanctionLetter ? (
+                                                        <a
+                                                            href={getFileUrl(item.sanctionLetter)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white rounded-md text-[11px] font-bold transition-all"
+                                                        >
+                                                            <FileText size={12} />
+                                                            <span>View</span>
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-xs font-mono">-</span>
+                                                    )}
+                                                </div>
+                                                <div className="bg-gray-50 p-2 rounded-xl border border-gray-100 flex flex-col items-center text-center">
+                                                    <span className="text-[10px] text-gray-500 font-semibold mb-1">Repayment</span>
+                                                    {item.repaymentLetter ? (
+                                                        <a
+                                                            href={getFileUrl(item.repaymentLetter)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white rounded-md text-[11px] font-bold transition-all"
+                                                        >
+                                                            <FileText size={12} />
+                                                            <span>View</span>
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-xs font-mono">-</span>
+                                                    )}
+                                                </div>
+                                                <div className="bg-gray-50 p-2 rounded-xl border border-gray-100 flex flex-col items-center text-center">
+                                                    <span className="text-[10px] text-gray-500 font-semibold mb-1">SOA</span>
+                                                    {item.soa ? (
+                                                        <a
+                                                            href={getFileUrl(item.soa)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white rounded-md text-[11px] font-bold transition-all"
+                                                        >
+                                                            <FileText size={12} />
+                                                            <span>View</span>
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-xs font-mono">-</span>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                         {item.remarks && (

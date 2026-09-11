@@ -113,6 +113,9 @@ create table public."loan" (
   
   provided_document_name text,
   file text,
+  sanction_letter text,
+  repayment_letter text,
+  soa text,
   
   remarks text,
   

@@ -1,7 +1,7 @@
-import React, { useState , useEffect } from 'react';
+import React, { useState , useEffect, useRef } from 'react';
 import useDataStore, { LoanItem } from '../../store/dataStore';
 import { toast } from 'react-hot-toast';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2, FileText, UploadCloud, CheckCircle2 } from 'lucide-react';
 import supabase from '../../utils/supabase';
 
 interface AddLoanProps {
@@ -23,8 +23,18 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
     remarks: '',
     file: null as string | null,
     fileContent: '',
-    fileUpload: null as File | null
+    fileUpload: null as File | null,
+    sanctionLetter: null as string | null,
+    sanctionLetterUpload: null as File | null,
+    repaymentLetter: null as string | null,
+    repaymentLetterUpload: null as File | null,
+    soa: null as string | null,
+    soaUpload: null as File | null,
   });
+
+  const sanctionInputRef = useRef<HTMLInputElement>(null);
+  const repaymentInputRef = useRef<HTMLInputElement>(null);
+  const soaInputRef = useRef<HTMLInputElement>(null);
 
   const [masterCompanies, setMasterCompanies] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,6 +84,56 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleDocumentFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'sanctionLetter' | 'repaymentLetter' | 'soa'
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error("File size must be less than 50MB");
+        e.target.value = "";
+        return;
+      }
+      setFormData(prev => ({
+        ...prev,
+        [type]: file.name,
+        [`${type}Upload`]: file
+      }));
+    }
+  };
+
+  const clearDocumentFile = (
+    type: 'sanctionLetter' | 'repaymentLetter' | 'soa',
+    inputRef: React.RefObject<HTMLInputElement | null>
+  ) => {
+    if (inputRef.current) inputRef.current.value = "";
+    setFormData(prev => ({
+      ...prev,
+      [type]: null,
+      [`${type}Upload`]: null
+    }));
+  };
+
+  const uploadToStorage = async (file: File, prefix: string): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const fileName = `${prefix}_${Date.now()}_${cleanName}.${fileExt}`;
+    const filePath = `loans/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('DRIVE_FOLDER')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('DRIVE_FOLDER')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -93,24 +153,40 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
       let driveFileUrl = "";
       if (formData.fileUpload) {
         try {
-          const fileExt = formData.fileUpload.name.split('.').pop();
-          const fileName = `${Math.random()}.${fileExt}`;
-          const filePath = `loans/${fileName}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('DRIVE_FOLDER')
-            .upload(filePath, formData.fileUpload);
-
-          if (uploadError) throw uploadError;
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('DRIVE_FOLDER')
-            .getPublicUrl(filePath);
-
-          driveFileUrl = publicUrl;
+          driveFileUrl = await uploadToStorage(formData.fileUpload, "doc");
         } catch (uploadErr) {
           console.error("File upload failed:", uploadErr);
           toast.error("File upload failed, saving record without file.");
+        }
+      }
+
+      let sanctionLetterUrl = "";
+      if (formData.sanctionLetterUpload) {
+        try {
+          sanctionLetterUrl = await uploadToStorage(formData.sanctionLetterUpload, "sanction");
+        } catch (uploadErr) {
+          console.error("Sanction letter upload failed:", uploadErr);
+          toast.error("Sanction letter upload failed, saving record without sanction letter.");
+        }
+      }
+
+      let repaymentLetterUrl = "";
+      if (formData.repaymentLetterUpload) {
+        try {
+          repaymentLetterUrl = await uploadToStorage(formData.repaymentLetterUpload, "repayment");
+        } catch (uploadErr) {
+          console.error("Repayment letter upload failed:", uploadErr);
+          toast.error("Repayment letter upload failed, saving record without repayment letter.");
+        }
+      }
+
+      let soaUrl = "";
+      if (formData.soaUpload) {
+        try {
+          soaUrl = await uploadToStorage(formData.soaUpload, "soa");
+        } catch (uploadErr) {
+          console.error("SOA upload failed:", uploadErr);
+          toast.error("SOA upload failed, saving record without SOA.");
         }
       }
 
@@ -142,6 +218,9 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
         loan_end_date: formData.endDate || null,
         provided_document_name: formData.providedDocument,
         file: driveFileUrl || null,
+        sanction_letter: sanctionLetterUrl || null,
+        repayment_letter: repaymentLetterUrl || null,
+        soa: soaUrl || null,
         remarks: formData.remarks
       };
 
@@ -164,7 +243,10 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
         Timestamp: timestamp,
         ...formData,
         fileContent: driveFileUrl || undefined,
-        file: driveFileUrl || formData.file
+        file: driveFileUrl || formData.file,
+        sanctionLetter: sanctionLetterUrl || null,
+        repaymentLetter: repaymentLetterUrl || null,
+        soa: soaUrl || null,
       };
       addLoan(newItem);
 
@@ -182,7 +264,13 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
         remarks: '',
         file: null,
         fileContent: '',
-        fileUpload: null
+        fileUpload: null,
+        sanctionLetter: null,
+        sanctionLetterUpload: null,
+        repaymentLetter: null,
+        repaymentLetterUpload: null,
+        soa: null,
+        soaUpload: null
       });
     } catch (error) {
       console.error("Loan Submission Error:", error);
@@ -323,6 +411,159 @@ const AddLoan: React.FC<AddLoanProps> = ({ isOpen, onClose }) => {
                   onChange={handleFileChange}
                 />
                 {formData.file && <p className="text-xs text-green-600 mt-1">Selected: {formData.file}</p>}
+              </div>
+            </div>
+
+            {/* Additional Documents: Sanction Letter, Repayment Letter, SOA */}
+            <div className="pt-2 border-t border-gray-100">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">
+                Loan Letters & Statements (Image / PDF)
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Sanction Letter */}
+                <div className="p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-indigo-50/20 transition-all flex flex-col justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                      <FileText size={14} className="text-indigo-600" />
+                      Sanction Letter
+                    </label>
+                    <p className="text-[11px] text-gray-400 mb-2">Upload Sanction letter (PDF/Image)</p>
+                  </div>
+                  <div>
+                    <input
+                      ref={sanctionInputRef}
+                      type="file"
+                      id="sanction-letter-upload"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf"
+                      className="hidden"
+                      onChange={e => handleDocumentFileChange(e, 'sanctionLetter')}
+                    />
+                    {formData.sanctionLetter ? (
+                      <div className="flex items-center justify-between p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                          <span className="truncate font-medium" title={formData.sanctionLetter}>
+                            {formData.sanctionLetter}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => clearDocumentFile('sanctionLetter', sanctionInputRef)}
+                          className="text-emerald-700 hover:text-red-500 p-1 font-bold ml-1 text-xs"
+                          title="Remove file"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => sanctionInputRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-white border border-gray-200 hover:border-indigo-400 text-gray-600 hover:text-indigo-600 rounded-lg text-xs font-medium shadow-sm transition-all"
+                      >
+                        <UploadCloud size={14} />
+                        <span>Choose File</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Repayment Letter */}
+                <div className="p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-indigo-50/20 transition-all flex flex-col justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                      <FileText size={14} className="text-blue-600" />
+                      Repayment Letter
+                    </label>
+                    <p className="text-[11px] text-gray-400 mb-2">Upload Repayment letter (PDF/Image)</p>
+                  </div>
+                  <div>
+                    <input
+                      ref={repaymentInputRef}
+                      type="file"
+                      id="repayment-letter-upload"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf"
+                      className="hidden"
+                      onChange={e => handleDocumentFileChange(e, 'repaymentLetter')}
+                    />
+                    {formData.repaymentLetter ? (
+                      <div className="flex items-center justify-between p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                          <span className="truncate font-medium" title={formData.repaymentLetter}>
+                            {formData.repaymentLetter}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => clearDocumentFile('repaymentLetter', repaymentInputRef)}
+                          className="text-emerald-700 hover:text-red-500 p-1 font-bold ml-1 text-xs"
+                          title="Remove file"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => repaymentInputRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-white border border-gray-200 hover:border-indigo-400 text-gray-600 hover:text-indigo-600 rounded-lg text-xs font-medium shadow-sm transition-all"
+                      >
+                        <UploadCloud size={14} />
+                        <span>Choose File</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* SOA */}
+                <div className="p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-indigo-50/20 transition-all flex flex-col justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                      <FileText size={14} className="text-amber-600" />
+                      SOA (Statement)
+                    </label>
+                    <p className="text-[11px] text-gray-400 mb-2">Upload SOA Statement (PDF/Image)</p>
+                  </div>
+                  <div>
+                    <input
+                      ref={soaInputRef}
+                      type="file"
+                      id="soa-upload"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf"
+                      className="hidden"
+                      onChange={e => handleDocumentFileChange(e, 'soa')}
+                    />
+                    {formData.soa ? (
+                      <div className="flex items-center justify-between p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                          <span className="truncate font-medium" title={formData.soa}>
+                            {formData.soa}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => clearDocumentFile('soa', soaInputRef)}
+                          className="text-emerald-700 hover:text-red-500 p-1 font-bold ml-1 text-xs"
+                          title="Remove file"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => soaInputRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-white border border-gray-200 hover:border-indigo-400 text-gray-600 hover:text-indigo-600 rounded-lg text-xs font-medium shadow-sm transition-all"
+                      >
+                        <UploadCloud size={14} />
+                        <span>Choose File</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 

@@ -87,6 +87,9 @@ export interface LoanItem {
   remarks: string;
   file?: string | null;
   fileContent?: string;
+  sanctionLetter?: string | null;
+  repaymentLetter?: string | null;
+  soa?: string | null;
 
   // Foreclosure & Close Request
   foreclosureStatus?: "Pending" | "Approved" | "Rejected"; // "Action" stage status
